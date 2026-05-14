@@ -1,0 +1,19 @@
+================================================================================
+Bloc historique — avant journal Cursor (résumé factuel au 2026-05-14)
+================================================================================
+Le dépôt buzzy-live-games contenait déjà un MVP fonctionnel :
+- Backend Fastify 5 (@fastify/jwt, cors, static), Socket.IO attaché au serveur HTTP.
+- Domaine PartyStore (mémoire) : création partie, join, chat, buzz, manches animateur,
+  chargement pack quiz depuis games/, JWT joueur et token admin Bearer.
+- Nettoyage : sweep périodique (PARTY_MAX_IDLE_MS / PARTY_SWEEP_INTERVAL_MS).
+- SPA React Router : accueil, création, rejoindre, /party/:id/play, /party/:id/admin.
+- Dockerfile multi-stage ; docker-compose à la racine ; manuel Traefik rédigé.
+
+Lacunes notables avant la session « doc + journal » : pas de fichier cursor_log ;
+DEV_PLAN listait encore des tâches déjà faites ; affichage des questions depuis le pack
+non exposé comme texte riche dans l’UI joueur (indexes seulement dans le snapshot).
+
+================================================================================
+Session 2026-05-14 — Documentation + journal de bord
+================================================================================
+Voir cursor_log_latest.txt pour le détail de la session courante (toujours la plus récente).

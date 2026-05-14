@@ -1,6 +1,8 @@
-# PartyGame — Plan de développement
+# PartyGame (buzzy-live-games) — Plan de développement
 
-Application web temps réel pour organiser des soirées **quiz / jeux de société** avec **scores partagés**, **lobby**, **équipes** et **buzzer**. Hébergement prévu sous **Docker** derrière **Traefik** (réseau et labels à aligner avec votre stack actuelle).
+Application web temps réel pour **quiz / soirées** : lobby, **scores**, **équipes**, **buzzer**, animateur séparé. Stack : API **Fastify**, SPA **React + Vite**, **Socket.IO**, déployable sous **Docker** derrière **Traefik**.
+
+Pour l’historique Cursor : [`cursor_log_latest.txt`](./cursor_log_latest.txt) (session récente) et [`cursor_log_archive.txt`](./cursor_log_archive.txt) (sessions archivées).
 
 ---
 
@@ -8,161 +10,196 @@ Application web temps réel pour organiser des soirées **quiz / jeux de sociét
 
 | Zone | Fonctionnalité |
 |------|----------------|
-| Accueil | Créer une partie ou rejoindre avec **code unique** (+ **QR code** pointant vers l’URL de rejoindre). |
-| Création | Nombre max de **joueurs** et d’**équipes** (valeurs numériques ou **illimité**). Mode **fermée** (plus d’entrées après le lancement) ou **ouverte** (rejoindre à tout moment). Options : autoriser ou non le **changement de nom / équipe** depuis le lobby. |
-| Lobby | Liste des participants, scores (selon état de la partie), **chat entre manches**, attente du lancement ou de la manche suivante. |
-| Joueur | En-tête : nom, score perso, équipe, score d’équipe. Centre : contenu **question / réponses** (selon le moteur de jeu). Bas : **buzzer**. Action : retour lobby (si les règles le permettent). |
-| Admin | Vue lobby, contrôle du cycle de vie : **lancer / terminer une manche**, passage lobby ↔ jeu. Pas de buzzer côté admin (sauf besoin futur « animateur »). |
+| Accueil | Créer une partie ou rejoindre avec **code** (+ **QR** sur l’admin). |
+| Création | Plafonds **joueurs** / **équipes** ou **illimité** ; **fermée** ou **ouverte** après premier lancement ; flags **rename** / **changement d’équipe**. |
+| Lobby / jeu | Liste des participants, buzzer fenêtré, chat en **lobby** et **entre manches**. |
+| Joueur | Infos perso + buzz + chat ; lien pour repasser par l’écran rejoindre afin de changer pseudo/équipe. |
+| Admin | Contrôle **manche**, **fenêtre buzzer**, ordre des buzzes, delta de points par joueur, choix du **pack** quiz. |
 
 ---
 
-## 2. Architecture technique (proposition)
+## 2. Architecture technique (état réel du dépôt)
 
-### 2.1 Dossiers du dépôt
+### 2.1 Dossiers
 
 ```
-PartyGame/
-├── games/           # Données et ressources des jeux (JSON, médias, packs de questions)
-├── webserver/       # API, WebSocket/SSE, frontend servi ou build statique
-├── DEV_PLAN.md      # Ce document
-└── (à ajouter) docker-compose.yml, Dockerfile — à la racine PartyGame ou dans webserver selon convention
+buzzy-live-games/
+├── games/                     # Packs quiz JSON (scan au démarrage)
+├── webserver/
+│   ├── client/               # SPA Vite + React
+│   ├── src/
+│   │   ├── app.ts           # Construction Fastify, CORS, JWT, routes, static prod
+│   │   ├── index.ts          # Bootstrap, notifier → Socket.IO emit
+│   │   ├── config.ts
+│   │   ├── domain/           # PartyStore, partyLogic, types
+│   │   ├── http/             # routes REST
+│   │   ├── games/           # Lecture / validation packs
+│   │   └── realtime/socket.ts
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml
+├── .env.example
+├── manuel.md, TRAEFIK.md
+├── README.md
+├── DEV_PLAN.md
+├── cursor_log_latest.txt
+└── cursor_log_archive.txt
 ```
 
-### 2.2 Stack recommandée (ajustable)
+### 2.2 Stack
 
-- **Backend** : Node.js (Fastify ou Express) + **Socket.IO** ou **ws** pour événements temps réel (lobby, buzzer, scores, chat).
-- **Frontend** : SPA légère (React + Vite ou Vue + Vite) — pages : accueil, création, rejoindre, lobby joueur, vue jeu joueur, admin.
-- **État serveur** : sessions de partie en mémoire (Redis optionnel pour multi-instances) ; persistance fichier/DB pour historique si besoin plus tard.
-- **Identité joueur** : pseudo + `playerId` (UUID) stocké en **session / localStorage** ; lien à la partie via `partyId` + code court.
-- **Jeux** : chargement de **packs** depuis `games/` (schéma JSON : manches, questions, bonnes réponses, points). Premier jeu : **quiz simple** ; structure extensible pour d’autres modes.
+| Couche | Choix |
+|--------|------|
+| API | Fastify 5, Zod validation, JWT joueur `@fastify/jwt`, CORS configurable |
+| Temps réel | Socket.IO : room `party:{uuid}` après auth handshake (Bearer joueur ou admin) |
+| Auth | JWT joueur (`pid`, `sub` = player id) ; host = `Authorization: Bearer` + secret `adminToken` par partie |
+| État partie | Mémoire process (`PartyStore`) ; pas de Redis |
+| Front | react-router-dom, fetch REST, socket.io-client, `qrcode.react` pour le QR animateur |
 
-### 2.3 Modèle de données (conceptuel)
+### 2.3 États partie (`PartyState`)
 
-- **Party** : `id`, `joinCode`, `maxPlayers`, `maxTeams`, `teamsUnlimited`, `playersUnlimited`, `closedAfterStart`, `allowRename`, `allowTeamChange`, `state` (lobby / round_active / round_break), `adminSecret` ou **JWT animateur**.
-- **Player** : `id`, `partyId`, `displayName`, `teamId` (nullable), scores individuels et contribution au score d’équipe.
-- **Round** : référence manche courante, question affichée, ordre des buzzers, réponses validées par l’admin.
+`lobby` → `round_active` ou `between_rounds` selon animateur → `ended` possible côté modèle pour extensions.
 
-### 2.4 Flux temps réel (événements typiques)
+Les snapshots publics incluent aussi `hasStartedRound`, `buzzOrder`, `buzzWindowOpen`, `currentRoundIndex`, `currentQuestionIndex`, équipes agrégées, file de chat récente (`chatTail`).
 
-- `party:updated`, `player:joined`, `player:left`, `player:renamed`, `team:changed`
-- `chat:message` (lobby / entre manches selon règles)
-- `round:start`, `round:end`, `question:show`, `buzz`, `buzz:order`, `score:update`
-- `admin:*` réservés aux clients authentifiés comme animateur
+### 2.4 Temps réel (implémenté)
 
-### 2.5 Docker & Traefik
+- **`party:patch`** — payload = `PartyPublicSnapshot` (JSON), émis après chaque mutation métier coté méthodes du store qui invoquent `broadcast`.
 
-- **Image** : build multi-stage (build frontend + runtime Node pour servir fichiers statiques + API/WebSocket).
-- **Ports** : un seul port HTTP interne (ex. 3000) ; Traefik route le host (ex. `partygame.example.com`).
-- **Labels Traefik** : `traefik.enable=true`, router HTTPS (entrypoint `websecure`), middlewares (headers, rate limit optionnel), service sur le bon port.
-- **WebSocket** : vérifier que le routeur Traefik laisse passer les upgrades (`Upgrade`, `Connection`) — en général OK avec les defaults.
-- **Réseau** : attacher le conteneur au **même réseau externe** que Traefik (`traefik_public` ou équivalent chez vous).
+### 2.5 Sécurité (rappels)
 
-### 2.6 Sécurité (rappels)
-
-- Code de partie non devinable (entropie suffisante, ex. 6–8 caractères alphanumériques ou plus long si besoin).
-- **Secret admin** : token fort à l’URL de création ou écran dédié ; ne jamais exposer en clair dans le QR code joueur.
-- Validation serveur de toutes les actions (buzzer, scores, messages) ; pas de confiance au seul client.
+- Le **QR et liens joueurs** contiennent `joinCode` + `partyId` ; le **secret admin** ne doit pas y figurer (JWT animateur hors QR).
+- Toutes les actions sensibles vérifient côté serveur (droits joueur/host, fenêtre buzzer, phases chat).
 
 ---
 
-## 3. Phases de réalisation
+## 3. Phases → statut synthétique
 
-1. **Fondations** : monorepo ou repo `webserver`, tooling, variables d’environnement, healthcheck HTTP.
-2. **API partie** : créer / rejoindre / quitter ; génération code + QR ; règles fermée / ouverte.
-3. **Temps réel** : Socket (ou équivalent) + synchronisation lobby.
-4. **UI joueur** : lobby, écran jeu, buzzer, contraintes rename / équipe.
-5. **UI admin** : dashboard manches, lecture état buzzer, attribution points (manuel ou semi-auto selon design quiz).
-6. **Contenu jeu** : format JSON dans `games/` + loader côté serveur.
-7. **Chat** : salon limité au lobby / pauses ; modération basique (longueur, débit).
-8. **Docker + Traefik** : `Dockerfile`, `docker-compose` snippet documenté pour copier-coller les labels dans votre compose global.
-9. **Tests** : unitaires règles métier ; un test d’intégration socket minimal.
-10. **Polish** : accessibilité basique, messages d’erreur, mode hors-ligne dégradé (message clair).
+| # | Phase | Statut |
+|---|-------|--------|
+| 1 | Fondations, healthcheck | Fait (`GET /api/health`) |
+| 2 | API partie + join | Fait |
+| 3 | Socket + sync lobby | Fait (`party:patch`) |
+| 4–5 | UI joueur + admin | Fait pour un MVP quiz (voir écarts ci-dessous) |
+| 6 | Pack `games/` + loader | Fait (+ `PATCH .../host/pack`) |
+| 7 | Chat restreint | Fait (lobby + `between_rounds`) |
+| 8 | Docker + Traefik | Fait (`webserver/Dockerfile`, compose racine, docs) |
+| 9 | Tests | Partiel : **vitest** sur règles domaine uniquement ; **pas** d’e2e Playwright encore |
+| 10 | Polish UX / accessibilité | Partiel |
 
 ---
 
-## 4. Liste de tâches (todo) — tout ce qu’il faut pour un produit fonctionnel
+## 4. Implémentation actuelle — détail technique
 
-### Structure & outillage
+### 4.1 Variables d’environnement pertinentes (`config.ts`)
 
-- [ ] Initialiser le projet dans `webserver/` (package.json, TypeScript, linter, formatter).
-- [ ] Définir la structure des modules : `api/`, `sockets/`, `domain/`, `public/` ou équivalent.
-- [ ] Schéma de configuration : port, `BASE_URL` (pour QR), CORS, durée de vie des parties inactives.
+| Variable | Rôle |
+|----------|------|
+| `PUBLIC_URL` | URL publique (schéma, sans `/` final) — liens de création côté API |
+| `JWT_SECRET` | Secret JWT joueur (**obligatoire** en production) |
+| `GAMES_DIR` | Répertoire des packs (`games/` par défaut en local depuis la racine du dépôt) |
+| `PARTY_MAX_IDLE_MS` | Âge max sans activité avant purge d’une partie (défaut 48 h) |
+| `PARTY_SWEEP_INTERVAL_MS` | Période du balayage (défaut 5 min) |
+| `PORT`, `HOST`, `CORS_ORIGIN` | Bind serveur et CORS |
 
-### Modèle & logique métier
+### 4.2 Routes HTTP notables
 
-- [ ] Implémenter l’entité **Party** avec tous les paramètres (joueurs, équipes, illimité, fermée/ouverte, flags rename/équipe).
-- [ ] Générer **code d’invitation** unique ; gérer collisions.
-- [ ] Générer **token / secret administrateur** par partie ; stockage côté client admin (sessionStorage conseillé).
-- [ ] Gérer les **états** : création → lobby → manche en cours → retour lobby → fin.
-- [ ] Règle **partie fermée** : rejeter les `join` après `round:first_start` ou équivalent documenté.
-- [ ] Règle **partie ouverte** : accepter les join selon plafonds joueurs/équipes seulement.
+| Méthode | Chemin | Rôle |
+|---------|--------|------|
+| GET | `/api/health` | Santé |
+| GET | `/api/packs` | Liste des packs indexés |
+| GET | `/api/parties/meta-by-code/:joinCode` | Résolution code → `partyId` + snapshot |
+| POST | `/api/parties` | Création (options) → `adminToken`, URLs |
+| GET | `/api/parties/:partyId` | Snapshot public |
+| POST | `/api/parties/:partyId/join` | Rejoindre → `playerToken` |
+| PATCH | `/api/parties/:partyId/me` | Renommer / équipe (JWT) si autorisé |
+| POST | `/api/parties/:partyId/me/chat` | Chat joueur |
+| POST | `/api/parties/:partyId/me/buzz` | Buzz |
+| POST | `/api/parties/:partyId/host/round/start` | Animateur : manche |
+| POST | `/api/parties/:partyId/host/round/pause` | Animateur : pause / lobby |
+| POST | `/api/parties/:partyId/host/buzz-window` | Ouvrir / fermer buzzer |
+| PATCH | `/api/parties/:partyId/host/players/:playerId/score` | Delta points |
+| PATCH | `/api/parties/:partyId/host/pack` | Charger un pack |
+| POST | `/api/parties/:partyId/host/chat` | Message hôte dans le chat |
 
-### API HTTP
+Pas de `GET /api/parties/:id/qr` : le **QR est généré côté client** (SPA admin) depuis l’URL de rejoindre.
 
-- [ ] `POST /api/parties` — création (body : options) ; réponse : `partyId`, `joinCode`, `adminUrl` ou token.
-- [ ] `GET /api/parties/:id` — métadonnées publiques (nom affiché optionnel, état lobby, nombre de joueurs).
-- [ ] `POST /api/parties/:id/join` — body : pseudo, équipe optionnelle ; réponse : `playerId`, cookie ou token joueur.
-- [ ] `PATCH /api/parties/:id/players/me` — renommer / changer d’équipe si autorisé.
-- [ ] `GET /api/parties/:id/qr` ou génération **côté client** via `joinCode` + `BASE_URL` (réduire charge serveur).
-- [ ] Route statique ou build Vite pour le **frontend**.
+### 4.3 Frontend (routes SPA)
+
+`/`, `/create`, `/join`, `/party/:partyId/play`, `/party/:partyId/admin` — fichier principal `webserver/client/src/App.tsx`.
+
+---
+
+## 5. Checklist mise à jour (MVP livré vs restant)
+
+### Structure et outillage
+
+- [x] Projet dans `webserver/` (TS, vite, eslint, vitest).
+- [x] Modules domain / http / realtime / games (noms différent du plan originel mais rôle équivalent).
+- [x] Configuration : port, `PUBLIC_URL`, CORS, **TTL parties inactives** (`PARTY_MAX_IDLE_MS`, sweep).
+
+### Modèle et logique
+
+- [x] Party avec paramètres (plafonds, fermée après start, flags rename / équipe).
+- [x] Code join unique + gestion collisions.
+- [x] Token animateur opaque par partie.
+- [x] États lobby / manche / entre manches.
+- [x] Règle partie fermée + plafonds (tests unitaires présents sur partie des règles).
+
+### API HTTP — voir §4.2
+
+- [x] Création, snapshot, join, PATCH self (**API** ; UX inline optionnelle, voir plus bas).
 
 ### Temps réel
 
-- [ ] Canal par `partyId` ; authentifier les messages (joueur vs admin).
-- [ ] Diffuser les mises à jour de **liste joueurs**, **scores**, **équipes**.
-- [ ] Événements **buzzer** : premier arrivé premier servi ; file d’attente visible côté admin.
-- [ ] **Chat** : broadcast filtré par phase (lobby / entre manches).
-- [ ] Reconnexion : réassocier socket à `playerId` / token.
+- [x] Room par partie + auth handshake.
+- [x] Patch snapshot sur mutations.
+- [x] Buzz ordre observable ; chat par phase serveur‑autorisée.
+- [x] Reconnexion : client renvoie le même Bearer dans `handshake.auth`.
 
-### Frontend — pages & composants
+### Frontend — pages
 
-- [ ] **Page d’accueil** : boutons Créer / Rejoindre ; champ code ; scan QR (option : `GET` param `?code=`).
-- [ ] **Page création** : formulaire (max joueurs, max équipes, cases illimité, fermée/ouverte, options rename/équipe).
-- [ ] **Redirection** après création vers **page admin** (URL avec token).
-- [ ] **Page rejoindre** : saisie pseudo, choix équipe si applicable.
-- [ ] **Lobby joueur** : liste participants, scores, chat, indication d’attente.
-- [ ] **Vue jeu joueur** : layout 3 zones (infos perso / contenu central / buzzer).
-- [ ] Bouton **retour lobby** + respect des flags serveur.
-- [ ] **Page admin** : miroir lobby, boutons lancer manche, terminer manche, affichage ordre buzzer, saisie points.
-- [ ] Composant **QR Code** (librairie npm) sur accueil ou page « partage » animateur.
+- [x] Accueil / création / rejoindre (dont `?code=` et `?party=`).
+- [x] Redirection admin après création (fragment `#token=` + sessionStorage).
+- [x] Vue joueur : buzz, chat aux phases permises.
+- [x] Bouton pour repasser par `/join` afin de modifier pseudo / équipe.
+- [ ] **Formulaire in-place** `PATCH .../me` dans la vue joueur (sans quitter vers `/join`) si on veut éviter une ré‑inscription.
+- [ ] **Énoncé de question / réponses** provenant du pack affichés au joueur — aujourd’hui seuls indices d’indexes sont dans le snapshot ; l’animateur pilote encore surtout le matériel affiché côté salle.
 
-### Contenu jeu (`games/`)
 
-- [ ] Définir le **format JSON** d’un pack (métadonnées, liste de manches, questions, réponses, points).
-- [ ] Placer au moins **un pack exemple** jouable.
-- [ ] Loader serveur : validation du schéma ; erreurs explicites si pack invalide.
-- [ ] Permettre à l’admin de **sélectionner** le pack ou la manche suivante (MVP : un seul pack linéaire).
+### Jeux (`games/`)
 
-### Persistance & nettoyage
+- [x] Format pack + exemple `example-quiz-pack.json`.
+- [x] Validation côté chargement packs.
+- [x] Admin : sélection de pack (`PATCH .../host/pack`).
 
-- [ ] Politique d’expiration des parties **inactives** (timer + sweep).
-- [ ] (Optionnel) journal des scores exportable ou log fichier.
 
-### Docker
+### Docker / docs
 
-- [ ] `Dockerfile` (build + prod).
-- [ ] `.dockerignore`.
-- [ ] `docker-compose` d’exemple pour PartyGame avec **labels Traefik** commentés ou prêts à l’emploi.
-- [ ] Variable `BASE_URL` / `PUBLIC_URL` pour QR et liens absolus.
+- [x] Dockerfile, `.dockerignore`, compose, `PUBLIC_URL` / JWT documentés dans `manuel.md` et README.
 
 ### Qualité
 
-- [ ] Tests unitaires : règles join, fermée/ouverte, buzzer, plafonds.
-- [ ] Test e2e minimal (Playwright) : créer → rejoindre → buzzer simulé (si faisable).
-- [ ] Documentation README courte : lancement local, build, intégration Traefik.
+- [x] Tests unitaires métier (`partyLogic.test.ts`).
+- [ ] Tests d’intégration socket automatisés.
+- [ ] E2e (Playwright) scénario happy path.
+- [x] README + manuel + Traefik.
 
 ---
 
-## 5. Hors scope MVP (backlog futur)
+## 6. Hors scope MVP (inchangé, backlog produit plus large)
 
-- Comptes utilisateurs / auth OAuth.
-- Plusieurs types de mini-jeux dans un même événement.
-- Mode « présentateur » sur grand écran (écran géant read-only).
-- Internationalisation complète.
-- Hébergement multi-régions et persistance Redis cluster.
+- Comptes / OAuth prolongés hors session quiz.
+- Plusieurs familles de mini‑jeux dans une même partie.
+- Grand écran « présentateur » read‑only synchronisé.
+- i18n complète ; cluster Redis pour multi‑instances.
+
 
 ---
 
-## 6. Prochaine action immédiate
+## 7. Prochaines actions immédiates (priorisables par l’équipe)
 
-Implémenter les **fondations** dans `webserver/` (serveur HTTP + première route `POST /api/parties`) et un **prototype Socket** qui pousse une mise à jour de lobby ; brancher ensuite le **frontend minimal** (accueil + création + join).
+1. **Contenu jeu côté joueur** — enrichir le snapshot ou un événément dédié avec le texte de la question/réponses du round courant (depuis pack chargé) et rendre ça lisible sous `/party/:id/play`.
+2. **UX rename/équipe** — petite UI branchée sur `PATCH /api/parties/:id/me` lorsque les flags partie l’autorisent.
+3. **E2e ou test socket minimal** pour verrouiller la régression autour join + buzz.
+

@@ -1,0 +1,48 @@
+# Journal de bord — buzzy-live-games (session la plus récente)
+
+**Date** : 2026-05-14  
+**Contexte** : Reprise du dépôt sans cursor_log dans l’arborescence ; demande utilisateur :
+ajouter les fichiers de journal et aligner la documentation sur l’état réel du code.
+
+## Objectifs de cette session
+
+- Introduire `cursor_log_latest.txt` + `cursor_log_archive.txt` à la racine du dépôt.
+- Réécrire `DEV_PLAN.md` (architecture, checklist, backlog réalistes, prochaines actions).
+- Mettre à jour `README.md` et `manuel.md` (références docs, variables d’environnement liées au sweep).
+
+## Réalisations
+
+### Journal Cursor
+
+- `cursor_log_archive.txt` : bloc de contexte pré-journal + gabarit pour empiler les sessions
+  lors des clôtures futures (merge depuis latest comme convenu avec l’Architecte).
+- `cursor_log_latest.txt` : ce fichier (point de reprise unique pour le prochain chat).
+
+### Documentation
+
+- `DEV_PLAN.md` :
+  - Arborescence et stack alignées sur le repo (racine `.`, `webserver/`, etc.).
+  - Section « Implémentation actuelle » : routes HTTP, événements Socket.IO, données persistées/non persistées.
+  - Checkboxes [x]/[ ] sur la liste de tâches avec écarts précis (UI question texte,
+    e2e, formulaire PATCH /me depuis l’écran joueur si souhaité).
+  - Nouvelles prochaines actions cohérentes avec les gaps résiduels.
+- `README.md` : lien vers `DEV_PLAN.md` et fichiers journal.
+- `manuel.md` : `PARTY_MAX_IDLE_MS`, `PARTY_SWEEP_INTERVAL_MS` dans le tableau des variables.
+
+### Rappel — session précédente (court)
+
+- Vue admin : génération d’un **QRCodeSVG** (`qrcode.react`) pour le lien `/join` partagé.
+
+## Prochain focus suggéré
+
+- Diffuser dans le snapshot (ou événements dédiés) le libellé de la question/manifeste depuis
+  le pack chargé, puis l’afficher au centre de la vue joueur.
+- Ou : tests Playwright minimal (créer → rejoindre → buzzer).
+- Ou : formulaire léger PATCH `/api/parties/:id/me` depuis le lobby joueur avec respect
+  allowRename / allowTeamChange (API déjà présente).
+
+## Références fichiers utiles pour reprendre
+
+- `webserver/src/http/routesParty.ts`, `domain/store.ts`, `realtime/socket.ts`
+- `webserver/client/src/App.tsx`
+- `webserver/Dockerfile`, `docker-compose.yml`

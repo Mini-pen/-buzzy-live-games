@@ -46,6 +46,8 @@ Créer un fichier **`.env`** à la racine de **`PartyGame/`** à partir de **`.e
 | **`GAMES_DIR`** | Déjà forcé dans le compose Docker (`/app/games`). En local, valeur par défaut du serveur : répertoire `PartyGame/games` relatif au build. |
 | **`PORT`** | Dans le compose : **3000** (port interne du conteneur). |
 | **`CORS_ORIGIN`** | Facultatif (développement) ; défaut permissif dans le code si non défini. |
+| **`PARTY_MAX_IDLE_MS`** | Parties laissées en mémoire au plus jusqu’à ce délai sans activité (défaut **48 h**). Suppression par balayage périodique. |
+| **`PARTY_SWEEP_INTERVAL_MS`** | Intervalle entre deux passes de nettoyage des parties inactives (défaut **5 min**). |
 
 ---
 
