@@ -1,0 +1,137 @@
+===========================================================
+  JYBE CHARACTERS — INDEX DES PERSONNAGES
+  Source : https://www.jybe.ch/characters/
+  99 personnages au total
+===========================================================
+
+FORMAT : Fichier image | Personnage | Catégorie
+-----------------------------------------------------------
+
+=== CARTOONS EASY — 11 personnages (dossier: images\cartoons\) ===
+cartoons_001.png | Les Simpson                  | Dessins animés (facile)
+cartoons_002.png | Les Pierrafeu                | Dessins animés (facile)
+cartoons_003.png | Scooby-Doo                   | Dessins animés (facile)
+cartoons_004.png | Winnie l'ourson              | Dessins animés (facile)
+cartoons_005.png | Le Laboratoire de Dexter     | Dessins animés (facile)
+cartoons_006.png | Tortues Ninja                | Dessins animés (facile)
+cartoons_007.png | Bob l'éponge                 | Dessins animés (facile)
+cartoons_008.png | Popeye                       | Dessins animés (facile)
+cartoons_009.png | Babar                        | Dessins animés (facile)
+cartoons_010.png | La Panthère rose             | Dessins animés (facile)
+cartoons_011.png | Titi et Grosminet            | Dessins animés (facile)
+
+=== COMICS EASY — 13 personnages (dossier: images\comics\) ===
+comics_001.png   | Lucky Luke                   | BD/Comics (facile)
+comics_002.png   | Les Aventures de Tintin      | BD/Comics (facile)
+comics_003.png   | La Bande à Picsou            | BD/Comics (facile)
+comics_004.png   | Batman                       | BD/Comics (facile)
+comics_005.png   | Les Schtroumpfs              | BD/Comics (facile)
+comics_006.png   | Spirou et Fantasio           | BD/Comics (facile)
+comics_007.png   | Hulk                         | BD/Comics (facile)
+comics_008.png   | Mafalda                      | BD/Comics (facile)
+comics_009.png   | Spider-Man                   | BD/Comics (facile)
+comics_010.png   | Calvin et Hobbes             | BD/Comics (facile)
+comics_011.png   | Captain America              | BD/Comics (facile)
+comics_012.png   | Mickey Mouse                 | BD/Comics (facile)
+comics_013.png   | Où est Charlie ?             | BD/Comics (facile)
+
+=== ANIMATED EASY — 13 personnages (dossier: images\animated\) ===
+animated_001.png | Les Indestructibles          | Films animés (facile)
+animated_002.png | Shrek                        | Films animés (facile)
+animated_003.png | Blanche-Neige                | Films animés (facile)
+animated_004.png | La petite sirène             | Films animés (facile)
+animated_005.png | La Belle et la Bête          | Films animés (facile)
+animated_006.png | Cendrillon                   | Films animés (facile)
+animated_007.png | Peter Pan                    | Films animés (facile)
+animated_008.png | Ratatouille                  | Films animés (facile)
+animated_009.png | Alice au pays des merveilles | Films animés (facile)
+animated_010.png | Aladdin                      | Films animés (facile)
+animated_011.png | Les Pingouins de Madagascar  | Films animés (facile)
+animated_012.png | Les Minions                  | Films animés (facile)
+animated_013.png | Toy Story                    | Films animés (facile)
+
+=== CINEMA EASY — 15 personnages (dossier: images\cinema\) ===
+cinema_001.png   | Le Seigneur des anneaux      | Cinéma (facile)
+cinema_002.png   | Star Wars                    | Cinéma (facile)
+cinema_003.png   | Avatar                       | Cinéma (facile)
+cinema_004.png   | Harry Potter                 | Cinéma (facile)
+cinema_005.png   | Star Trek                    | Cinéma (facile)
+cinema_006.png   | Le Cinquième Élément         | Cinéma (facile)
+cinema_007.png   | Superman                     | Cinéma (facile)
+cinema_008.png   | RoboCop                      | Cinéma (facile)
+cinema_009.png   | Rocky                        | Cinéma (facile)
+cinema_010.png   | The Mask                     | Cinéma (facile)
+cinema_011.png   | Iron Man                     | Cinéma (facile)
+cinema_012.png   | Men in Black                 | Cinéma (facile)
+cinema_013.png   | Terminator                   | Cinéma (facile)
+cinema_014.png   | Les Blues Brothers           | Cinéma (facile)
+cinema_015.png   | L'Homme invisible            | Cinéma (facile)
+
+=== VIDEO EASY — 16 personnages (dossier: images\video\) ===
+video_001.png    | Super Mario Bros             | Jeux vidéo (facile)
+video_002.png    | Street Fighter               | Jeux vidéo (facile)
+video_003.png    | Banjo-Kazooie                | Jeux vidéo (facile)
+video_004.png    | Sonic the Hedgehog           | Jeux vidéo (facile)
+video_005.png    | The Legend of Zelda          | Jeux vidéo (facile)
+video_006.png    | Tomb Raider                  | Jeux vidéo (facile)
+video_007.png    | Donkey Kong                  | Jeux vidéo (facile)
+video_008.png    | Metal Gear Solid             | Jeux vidéo (facile)
+video_009.png    | Rayman                       | Jeux vidéo (facile)
+video_010.png    | Mega Man                     | Jeux vidéo (facile)
+video_011.png    | Hitman                       | Jeux vidéo (facile)
+video_012.png    | Portal                       | Jeux vidéo (facile)
+video_013.png    | Halo                         | Jeux vidéo (facile)
+video_014.png    | Fallout                      | Jeux vidéo (facile)
+video_015.png    | Lemmings                     | Jeux vidéo (facile)
+video_016.png    | Pac-Man                      | Jeux vidéo (facile)
+
+=== CARTOONS EXPERT — 12 personnages (dossier: images\cartoons\) ===
+NOTE : Réponses non publiées sur le site — indices fournis pour jouer
+cartoons_001.png | ? [1999 - Univers futuriste]    | Dessins animés (expert)
+cartoons_002.png | ? [1997 - Préscolaire]          | Dessins animés (expert)
+cartoons_003.png | ? [1998 - Cartoon Network]      | Dessins animés (expert)
+cartoons_004.png | ? [1961 - Hanna-Barbera]        | Dessins animés (expert)
+cartoons_005.png | ? [1997 - Musclé et rustre]     | Dessins animés (expert)
+cartoons_006.png | ? [1995 - Animaniacs]           | Dessins animés (expert)
+cartoons_007.png | ? [1997 - Langage explicite]    | Dessins animés (expert)
+cartoons_008.png | ? [2000 - Aventure pour enfant] | Dessins animés (expert)
+cartoons_009.png | ? [1940 - Hanna-Barbera]        | Dessins animés (expert)
+cartoons_010.png | ? [1949 - ACME]                 | Dessins animés (expert)
+cartoons_011.png | ? [1991 - Tornade du diable]    | Dessins animés (expert)
+cartoons_012.png | ? [1990 - Krusty le clown]      | Dessins animés (expert)
+
+=== SUPERHEROES EXPERT — 19 personnages (dossier: images\superheroes\) ===
+NOTE : Réponses non publiées sur le site — indices fournis pour jouer
+superheroes_001.png | ? [1939 - Chevalier]        | Super-héros (expert)
+superheroes_002.png | ? [1963 - Laser]            | Super-héros (expert)
+superheroes_003.png | ? [1961 - Rocher]           | Super-héros (expert)
+superheroes_004.png | ? [1940 - Rapide]           | Super-héros (expert)
+superheroes_005.png | ? [1940 - Bague]            | Super-héros (expert)
+superheroes_006.png | ? [1962 - Marteau]          | Super-héros (expert)
+superheroes_007.png | ? [1941 - Archer]           | Super-héros (expert)
+superheroes_008.png | ? [1993 - Cornes]           | Super-héros (expert)
+superheroes_009.png | ? [1963 - Borgne]           | Super-héros (expert)
+superheroes_010.png | ? [1941 - Trident]          | Super-héros (expert)
+superheroes_011.png | ? [1974 - Griffes]          | Super-héros (expert)
+superheroes_012.png | ? [1991 - Insolent]         | Super-héros (expert)
+superheroes_013.png | ? [2008 - Tabassé]          | Super-héros (expert)
+superheroes_014.png | ? [1963 - Handicapé]        | Super-héros (expert)
+superheroes_015.png | ? [1941 - Héroïne]          | Super-héros (expert)
+superheroes_016.png | ? [1947 - Arlequin]         | Super-héros (expert)
+superheroes_017.png | ? [1959 - Sait voler]       | Super-héros (expert)
+superheroes_018.png | ? [1975 - Météorologue]     | Super-héros (expert)
+superheroes_019.png | ? [1978 - Peau bleue]       | Super-héros (expert)
+
+===========================================================
+  TOTAL : 99 personnages
+  - 68 avec réponse complète (catégories "easy")
+  - 31 avec indices seulement (catégories "expert")
+
+  ORGANISATION DES FICHIERS :
+  PartyGame\images\cartoons\      → 23 images (11 easy + 12 expert)
+  PartyGame\images\comics\        → 13 images
+  PartyGame\images\animated\      → 13 images
+  PartyGame\images\cinema\        → 15 images
+  PartyGame\images\video\         → 16 images
+  PartyGame\images\superheroes\   → 19 images
+===========================================================

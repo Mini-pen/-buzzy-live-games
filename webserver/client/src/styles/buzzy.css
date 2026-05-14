@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────────
  * Buzzy — design tokens & style overrides
- * Phase 1 (theme) + Phase 2 (Home) + Phase 3 (Play / buzzer).
+ * Phases 1 (theme) + 2 (Home) + 3 (Play) + 4 (Admin).
  * Drop-in stylesheet. Scoped under .bz-app set by the Shell.
  * ──────────────────────────────────────────────────────────────── */
 
@@ -44,7 +44,6 @@ html, body {
   margin: 0;
 }
 
-/* ── App scope ───────────────────────────────────────────────── */
 .bz-app {
   min-height: 100vh;
   background:
@@ -146,11 +145,7 @@ html, body {
   gap: 8px;
 }
 .bz-app label input, .bz-app label select { width: auto; margin-left: 6px; }
-.bz-app input[type="checkbox"] {
-  width: 16px; height: 16px;
-  accent-color: var(--bz-accent);
-  margin: 0;
-}
+.bz-app input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--bz-accent); margin: 0; }
 .bz-app ul, .bz-app ol { padding-left: 20px; }
 .bz-app li { margin: 4px 0; }
 .bz-app p { margin: 8px 0; }
@@ -241,6 +236,14 @@ html, body {
   padding: 10px 12px;
   margin: 12px 0;
 }
+
+/* Shell container (Phase 4 — extracted from inline style, supports wide) */
+.bz-app .bz-shell-container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+}
+.bz-app .bz-shell-container.bz-shell--wide { max-width: 1320px; }
 
 /* ── Phase 2 — Home ──────────────────────────────────────────── */
 .bz-app .bz-hero {
@@ -337,8 +340,7 @@ html, body {
 .bz-app .bz-resume-foot .bz-arrow { margin-left: auto; color: var(--bz-accent); font-weight: 700; }
 .bz-app .bz-resume-foot code { letter-spacing: 0.18em; }
 
-/* ── Phase 3 — Play (player view) ────────────────────────────── */
-
+/* ── Phase 3 — Play ──────────────────────────────────────────── */
 .bz-app .bz-identity-strip {
   display: flex;
   align-items: center;
@@ -395,7 +397,6 @@ html, body {
   color: var(--bz-text-strong);
 }
 
-/* Game board */
 .bz-app .bz-board {
   margin: 18px 0;
   padding: 22px;
@@ -477,7 +478,6 @@ html, body {
 }
 .bz-app .bz-board-answer { margin: 14px 0 0; font-size: 14px; color: var(--bz-muted); }
 
-/* Buzz hero */
 .bz-app .bz-buzz-hero {
   margin: 28px 0 18px;
   padding: 24px 0;
@@ -509,24 +509,14 @@ html, body {
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.bz-app .bz-buzz-btn.bz-buzz-armed {
-  animation: bz-buzz-pulse 1.6s ease-in-out infinite;
-}
+.bz-app .bz-buzz-btn.bz-buzz-armed { animation: bz-buzz-pulse 1.6s ease-in-out infinite; }
 .bz-app .bz-buzz-btn:hover { filter: brightness(1.05); }
 .bz-app .bz-buzz-btn:active { transform: scale(0.95); filter: brightness(0.88); }
 .bz-app .bz-buzz-btn:focus-visible { outline: 4px solid var(--bz-accent-soft); outline-offset: 6px; }
 
 @keyframes bz-buzz-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 0 0 color-mix(in oklab, var(--bz-accent) 60%, transparent),
-      0 0 64px color-mix(in oklab, var(--bz-accent) 35%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 28px color-mix(in oklab, var(--bz-accent) 0%, transparent),
-      0 0 96px color-mix(in oklab, var(--bz-accent) 55%, transparent);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--bz-accent) 60%, transparent), 0 0 64px color-mix(in oklab, var(--bz-accent) 35%, transparent); }
+  50%      { box-shadow: 0 0 0 28px color-mix(in oklab, var(--bz-accent) 0%, transparent), 0 0 96px color-mix(in oklab, var(--bz-accent) 55%, transparent); }
 }
 
 .bz-app .bz-buzz-closed {
@@ -545,9 +535,8 @@ html, body {
   line-height: 1.5;
 }
 
-/* Queue */
 .bz-app .bz-queue { margin: 22px 0; }
-.bz-app .bz-queue h2 {
+.bz-app .bz-queue > h2 {
   font-family: var(--bz-f-mono);
   font-size: 11px;
   font-weight: 700;
@@ -589,9 +578,8 @@ html, body {
 .bz-app .bz-queue-row.bz-queue-me .bz-queue-rank { color: var(--bz-accent); }
 .bz-app .bz-queue-name { flex: 1; font-size: 15px; font-weight: 600; color: var(--bz-text); }
 
-/* Chat */
 .bz-app .bz-chat { margin: 24px 0 12px; }
-.bz-app .bz-chat h2 {
+.bz-app .bz-chat > h2 {
   font-family: var(--bz-f-mono);
   font-size: 11px;
   font-weight: 700;
@@ -630,11 +618,7 @@ html, body {
   border-radius: 8px;
   margin: 0;
 }
-.bz-app .bz-chat-row strong {
-  font-weight: 700;
-  color: var(--bz-accent);
-  margin-right: 6px;
-}
+.bz-app .bz-chat-row strong { font-weight: 700; color: var(--bz-accent); margin-right: 6px; }
 
 .bz-app .bz-leave {
   margin-top: 28px;
@@ -648,4 +632,265 @@ html, body {
   color: var(--bz-muted);
   height: 36px;
   font-size: 13px;
+}
+
+/* ── Phase 4 — Admin (host) ─────────────────────────────────── */
+.bz-app .bz-host-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (min-width: 980px) {
+  .bz-app .bz-host-layout { grid-template-columns: minmax(0, 1fr) 380px; }
+}
+.bz-app .bz-host-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+.bz-app .bz-host-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+@media (min-width: 980px) {
+  .bz-app .bz-host-aside { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow: auto; }
+}
+
+/* Hero card: code + QR + share URL */
+.bz-app .bz-host-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: center;
+  padding: 22px 24px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-r-lg);
+}
+@media (min-width: 720px) {
+  .bz-app .bz-host-hero { grid-template-columns: 1fr auto; }
+}
+.bz-app .bz-host-hero-info { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bz-app .bz-host-code {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: clamp(48px, 8vw, 88px);
+  letter-spacing: -0.04em;
+  color: var(--bz-accent);
+  line-height: 1;
+}
+.bz-app .bz-host-join {
+  font-family: var(--bz-f-mono);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: var(--bz-r-md);
+  background: var(--bz-bg);
+  border: 1px solid var(--bz-line);
+  color: var(--bz-muted);
+  word-break: break-all;
+  letter-spacing: 0.04em;
+}
+.bz-app .bz-host-join strong { color: var(--bz-text-strong); }
+.bz-app .bz-host-hero-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: white;
+  border-radius: 12px;
+}
+.bz-app .bz-host-hero-qr svg { display: block; }
+.bz-app .bz-host-qr-cap {
+  font-family: var(--bz-f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* Pack picker */
+.bz-app .bz-host-pack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-r-lg);
+}
+.bz-app .bz-host-pack h2 {
+  font-family: var(--bz-f-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+  font-weight: 700;
+  margin: 0;
+}
+.bz-app .bz-host-pack-row { display: flex; gap: 8px; align-items: center; }
+.bz-app .bz-host-pack-row select { flex: 1; }
+
+/* Sticky controls bar */
+.bz-app .bz-host-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: color-mix(in oklab, var(--bz-surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-r-lg);
+  position: sticky;
+  bottom: 12px;
+  z-index: 10;
+  margin-top: 8px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4);
+}
+.bz-app .bz-host-controls button { height: 36px; font-size: 13px; padding: 0 12px; }
+
+/* Aside sections */
+.bz-app .bz-host-section {
+  padding: 14px 16px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-r-lg);
+}
+.bz-app .bz-host-section > h2 {
+  font-family: var(--bz-f-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+  font-weight: 700;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Host queue (smaller than player queue) */
+.bz-app .bz-host-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bz-app .bz-host-queue-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bz-bg-2);
+  border-radius: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+.bz-app .bz-host-queue-list li:first-child {
+  background: var(--bz-accent-soft);
+  color: var(--bz-text-strong);
+}
+.bz-app .bz-host-queue-list .bz-rank {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: 18px;
+  width: 18px;
+  color: var(--bz-muted);
+}
+.bz-app .bz-host-queue-list li:first-child .bz-rank { color: var(--bz-accent); }
+.bz-app .bz-host-queue-list .bz-name { flex: 1; font-weight: 600; }
+
+/* Scoreboard */
+.bz-app .bz-host-scores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 360px;
+  overflow: auto;
+}
+.bz-app .bz-host-score-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+.bz-app .bz-host-score-row:hover { background: var(--bz-bg-2); }
+.bz-app .bz-host-rank {
+  font-family: var(--bz-f-mono);
+  font-size: 11px;
+  color: var(--bz-faint);
+  text-align: right;
+}
+.bz-app .bz-host-name {
+  font-weight: 600;
+  color: var(--bz-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bz-app .bz-host-team {
+  display: inline-block;
+  font-family: var(--bz-f-mono);
+  font-size: 10px;
+  color: var(--bz-muted);
+  margin-left: 6px;
+  letter-spacing: 0.1em;
+}
+.bz-app .bz-host-score-value {
+  font-family: var(--bz-f-display);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--bz-text-strong);
+  min-width: 24px;
+  text-align: right;
+  line-height: 1;
+}
+.bz-app .bz-host-delta { display: flex; align-items: center; gap: 4px; }
+.bz-app .bz-host-delta input {
+  width: 44px;
+  height: 28px;
+  padding: 0 6px;
+  font-family: var(--bz-f-mono);
+  font-size: 12px;
+  text-align: center;
+  border-radius: 6px;
+}
+.bz-app .bz-host-delta button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+/* Compact chat in aside */
+.bz-app .bz-host-section .bz-chat-list { max-height: 220px; font-size: 12px; }
+.bz-app .bz-host-section .bz-chat-row { padding: 4px 6px; font-size: 12px; }
+.bz-app .bz-host-section .bz-chat-input textarea { min-height: 36px; height: 36px; padding: 8px 10px; }
+.bz-app .bz-host-section .bz-chat-input button { height: 36px; }
+
+/* Error pre */
+.bz-app .bz-err {
+  background: rgba(255, 61, 90, 0.08);
+  border: 1px solid rgba(255, 61, 90, 0.3);
+  color: var(--bz-bad);
+  border-radius: var(--bz-r-md);
+  padding: 10px 12px;
+  margin: 12px 0;
+  font-family: var(--bz-f-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
 }
