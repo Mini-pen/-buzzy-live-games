@@ -119,7 +119,7 @@ html, body {
 .bz-app button[type="submit"]:hover, .bz-app .bz-primary:hover { filter: brightness(1.06); }
 
 .bz-app input[type="text"], .bz-app input[type="number"], .bz-app input[type="email"],
-.bz-app input:not([type]), .bz-app textarea, .bz-app select {
+.bz-app input[type="url"], .bz-app input:not([type]), .bz-app textarea, .bz-app select {
   font-family: var(--bz-f-body);
   height: 44px;
   padding: 0 12px;
@@ -151,6 +151,13 @@ html, body {
   accent-color: var(--bz-accent);
   margin: 0;
 }
+.bz-app input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--bz-accent);
+  margin: 0;
+  flex-shrink: 0;
+}
 .bz-app ul, .bz-app ol { padding-left: 20px; }
 .bz-app li { margin: 4px 0; }
 .bz-app p { margin: 8px 0; }
@@ -164,6 +171,123 @@ html, body {
   padding: 20px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 8px 28px rgba(0, 0, 0, 0.32);
   display: block;
+}
+
+/* ── Host: add-manche modal (portal-style overlay inside .bz-app) ───────────────── */
+.bz-app .bz-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(2, 2, 8, 0.72);
+  backdrop-filter: blur(4px);
+}
+.bz-app .bz-modal-dialog {
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 22px 24px;
+  border-radius: var(--bz-r-lg);
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line-strong);
+  color: var(--bz-text);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 64px rgba(0, 0, 0, 0.55);
+}
+.bz-app .bz-modal-dialog h2 {
+  margin-top: 0;
+}
+.bz-app .bz-modal-tab-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.bz-app .bz-modal-tab {
+  height: auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  align-self: flex-start;
+}
+.bz-app .bz-modal-tab[aria-pressed="false"] {
+  background: var(--bz-surface-2);
+  border-color: var(--bz-line);
+  color: var(--bz-muted);
+  font-weight: 500;
+}
+.bz-app .bz-modal-tab[aria-pressed="true"] {
+  background: var(--bz-accent-soft);
+  border-color: color-mix(in oklab, var(--bz-accent) 55%, var(--bz-line-strong));
+  color: var(--bz-text-strong);
+  font-weight: 700;
+}
+.bz-app fieldset.bz-modal-fieldset {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--bz-r-md);
+  border: 1px solid var(--bz-line-strong);
+  background: color-mix(in oklab, var(--bz-bg) 40%, transparent);
+}
+.bz-app fieldset.bz-modal-fieldset legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+}
+.bz-app fieldset.bz-modal-fieldset label {
+  color: var(--bz-text);
+  font-weight: 500;
+}
+.bz-app .bz-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+/* ── Host: manche script list rows ─────────────────────────────── */
+.bz-app ul.bz-manche-list {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+}
+.bz-app li.bz-manche-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: var(--bz-r-md);
+  border: 1px solid var(--bz-line);
+  background: var(--bz-surface-2);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.bz-app li.bz-manche-row.bz-manche-row--playing {
+  border-color: var(--bz-accent);
+  background: var(--bz-accent-soft);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--bz-accent) 28%, transparent) inset;
+}
+.bz-app .bz-manche-row-title {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.bz-app .bz-manche-row-kind {
+  margin-left: 8px;
+  font-size: 0.92em;
+}
+.bz-app .bz-manche-row-live {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bz-accent);
 }
 
 .bz-app .bz-pill {
@@ -404,12 +528,34 @@ html, body {
   border-radius: var(--bz-r-lg);
 }
 .bz-app .bz-board--empty {
-  background: transparent;
-  border: 1px dashed var(--bz-line-strong);
-  padding: 18px 22px;
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--bz-surface) 94%, var(--bz-accent-soft) 6%),
+    var(--bz-surface)
+  );
+  border: 1px dashed color-mix(in oklab, var(--bz-accent) 22%, var(--bz-line-strong));
+  border-radius: var(--bz-r-lg);
+  padding: 22px 24px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 10px 32px rgba(0, 0, 0, 0.28);
 }
-.bz-app .bz-board--empty h2 { font-size: 16px; margin: 0 0 4px; }
-.bz-app .bz-board--empty p { margin: 0; color: var(--bz-muted); font-size: 13px; }
+.bz-app .bz-board--empty h2 {
+  font-family: var(--bz-f-display);
+  font-size: clamp(17px, 2.8vw, 22px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+  color: var(--bz-text-strong);
+  line-height: 1.2;
+}
+.bz-app .bz-board--empty p {
+  margin: 0;
+  color: var(--bz-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 40rem;
+}
 .bz-app .bz-board-meta {
   display: flex;
   align-items: center;
@@ -475,7 +621,36 @@ html, body {
   background: #000;
   display: block;
 }
+.bz-app .bz-board-embed-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  border-radius: var(--bz-r-md);
+  background: var(--bz-bg);
+  border: 1px solid var(--bz-line);
+}
+.bz-app .bz-board-embed-wrap iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.bz-app .bz-board-embed-hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
 .bz-app .bz-board-answer { margin: 14px 0 0; font-size: 14px; color: var(--bz-muted); }
+.bz-app .bz-modal-embed-tip {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--bz-muted);
+}
 
 /* Buzz hero */
 .bz-app .bz-buzz-hero {

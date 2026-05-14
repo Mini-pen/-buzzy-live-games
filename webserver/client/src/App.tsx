@@ -37,7 +37,7 @@ interface PartyGameBoardIframe {
   replaySerial: number;
 }
 
-/** * YouTube embed manche (`embedUrl` is already normalised server-side). */
+/** * YouTube embed manche (`embedUrl`: nocookie iframe `src`, normalised server-side). */
 interface PartyGameBoardYoutube {
   kind: "youtube";
   title: string;
@@ -218,7 +218,14 @@ function peekPlayerJwt(routePartyIdRaw: string): string | null {
   return findPlayerJwtForPartyRouteId(routePartyIdRaw);
 }
 
-/** * Last party id hints (tab session). Same browser session scope as a cookie for this SPA. */
+/** * Build admin path + optional `#token=` from session (reliable resume even when storage is read after first paint). */
+function adminTableResumeTo(partyIdCanon: string): string {
+  const base = `/party/${encodeURIComponent(partyIdCanon)}/admin`;
+  const t = findAdminBearerForPartyRouteId(partyIdCanon);
+  if (t === null || t === "") return base;
+  return `${base}#token=${encodeURIComponent(t)}`;
+}
+
 const STORAGE_LAST_PLAYER_PARTY = "partygames:lastPlayerPartyId";
 const STORAGE_LAST_PLAYER_CODE = "partygames:lastPlayerJoinCode";
 const STORAGE_LAST_ADMIN_PARTY = "partygames:lastAdminPartyId";
@@ -322,15 +329,71 @@ function resolvePlayerPartyIdToResume(): string | null {
 /** * Party id if an admin token is still in session for this tab. */
 function resolveAdminPartyIdToResume(): string | null {
   if (typeof globalThis.sessionStorage === "undefined") return null;
-  const last = sessionStorage.getItem(STORAGE_LAST_ADMIN_PARTY);
-  if (last !== null && last !== "" && findAdminBearerForPartyRouteId(last) !== null) {
-    const c = canonicalPartyIdFromRoute(last);
-    return c === "" ? null : c;
+  const lastStored = sessionStorage.getItem(STORAGE_LAST_ADMIN_PARTY);
+  if (lastStored !== null && lastStored.trim() !== "") {
+    const lastCanon = canonicalPartyIdFromRoute(lastStored);
+    if (lastCanon === "") {
+      sessionStorage.removeItem(STORAGE_LAST_ADMIN_PARTY);
+    } else if (findAdminBearerForPartyRouteId(lastCanon) !== null) {
+      return lastCanon;
+    } else {
+      sessionStorage.removeItem(STORAGE_LAST_ADMIN_PARTY);
+    }
   }
   const all = listPartyIdsWithStoredAdminToken();
   if (all.length === 0) return null;
   const c = canonicalPartyIdFromRoute(all[0] ?? "");
   return c === "" ? null : c;
+}
+
+/** * Outcome when loading `/api/parties/:id`; drives accurate resume / error screens. */
+type PartySnapLoadOutcome =
+  | { kind: "ok"; snapshot: PartySnapshot }
+  | { kind: "not_found" }
+  | { kind: "bad_token" }
+  | { kind: "aborted" }
+  | { kind: "network"; message: string }
+  | { kind: "http_error"; status: number; body: string };
+
+/** * Loads a party snapshot ; optional Bearer unlocks fields reserved for authenticated host. */
+async function loadPartySnapshot(
+  partyId: string,
+  opts?: { bearer?: string | undefined; signal?: AbortSignal | undefined },
+): Promise<PartySnapLoadOutcome> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const bearer = opts?.bearer?.trim();
+  if (typeof bearer === "string" && bearer !== "") headers.Authorization = `Bearer ${bearer}`;
+  try {
+    const res = await fetch(`/api/parties/${encodeURIComponent(partyId)}`, {
+      credentials: "same-origin",
+      headers,
+      signal: opts?.signal,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      let errCode = "";
+      try {
+        const j = JSON.parse(text) as { error?: string };
+        errCode = typeof j.error === "string" ? j.error : "";
+      } catch {
+        /* noop */
+      }
+      if (res.status === 401 || errCode === "UNAUTHORIZED") return { kind: "bad_token" };
+      if (res.status === 404 || errCode === "NOT_FOUND") return { kind: "not_found" };
+      return { kind: "http_error", status: res.status, body: text.slice(0, 320) };
+    }
+    try {
+      const snapshot = JSON.parse(text) as PartySnapshot;
+      return { kind: "ok", snapshot };
+    } catch {
+      return { kind: "http_error", status: res.status, body: "INVALID_JSON" };
+    }
+  } catch (e: unknown) {
+    if (opts?.signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) {
+      return { kind: "aborted" };
+    }
+    return { kind: "network", message: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -403,13 +466,20 @@ function Home(): JSX.Element {
         }
       }
       if (pidA !== null) {
-        try {
-          const s = await fetchJson<PartySnapshot>(
-            `/api/parties/${encodeURIComponent(pidA)}`,
-          );
-          aRes = { partyId: pidA, joinCode: s.joinCode };
-        } catch {
-          aRes = { partyId: pidA, joinCode: "" };
+        const bearerA = findAdminBearerForPartyRouteId(pidA);
+        if (bearerA === null || bearerA === "") {
+          purgeAdminSessionForPartyRouteId(pidA);
+          aRes = null;
+        } else {
+          const outA = await loadPartySnapshot(pidA, { bearer: bearerA });
+          if (outA.kind === "ok") {
+            aRes = { partyId: pidA, joinCode: outA.snapshot.joinCode };
+          } else if (outA.kind === "not_found" || outA.kind === "bad_token") {
+            purgeAdminSessionForPartyRouteId(pidA);
+            aRes = null;
+          } else {
+            aRes = { partyId: pidA, joinCode: "" };
+          }
         }
       }
       if (!cancelled) {
@@ -475,10 +545,7 @@ function Home(): JSX.Element {
           ) : null}
 
           {adminResume !== null ? (
-            <Link
-              to={`/party/${encodeURIComponent(adminResume.partyId)}/admin`}
-              className="bz-card bz-resume-card"
-            >
+            <Link to={adminTableResumeTo(adminResume.partyId)} className="bz-card bz-resume-card">
               <span className="bz-pill bz-info">jeton animateur</span>
               <h2>Reprendre le tableau</h2>
               <p>
@@ -842,13 +909,74 @@ function GameBoardPanel(props: {
     );
   }
 
-  if (partyState === "round_active") {
+  if (board !== null && board.kind === "youtube") {
+    return (
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-accent">
+            <span className="bz-dot" />
+            YouTube
+          </span>
+          <span>{board.title}</span>
+        </div>
+        <div className="bz-board-embed-wrap">
+          <iframe
+            key={board.replaySerial}
+            title={board.title}
+            src={board.embedUrl}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+        <p className="bz-board-embed-hint bz-muted">
+          Si une vérification « anti-robot » ou un écran vide apparaît : désactivez le bloqueur de publicités
+          pour cette page ( le lecteur appelle aussi des domaines comme{" "}
+          <code className="bz-code">doubleclick.net</code> ), testez hors navigation privée stricte, ou ouvrez la
+          vidéo dans un nouvel onglet YouTube depuis l’ordinateur animateur.
+        </p>
+      </section>
+    );
+  }
+
+  if (board !== null && board.kind === "iframe") {
+    return (
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-info">
+            <span className="bz-dot" />
+            page web
+          </span>
+          <span>{board.title}</span>
+        </div>
+        <div className="bz-board-embed-wrap">
+          <iframe
+            key={board.replaySerial}
+            title={board.title}
+            src={board.url}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+        <p className="bz-board-embed-hint bz-muted">
+          Beaucoup de sites interdisent l’affichage dans un autre domaine : si la console signale une erreur «{" "}
+          <code className="bz-code">frame-ancestors</code> » ou «{" "}
+          <code className="bz-code">X-Frame-Options</code>
+          », le site doit être ouvert hors Buzzy — pour une vidéo YouTube officielle utilisez toujours le type «
+          Vidéo YouTube », pas une URL en iframe générique.
+        </p>
+      </section>
+    );
+  }
+
+  if (partyState === "round_active" && board === null) {
     return (
       <section className="bz-board bz-board--empty">
         <h2>Zone de jeu</h2>
         <p>
-          Aucun énoncé disponible : l'animateur doit charger un pack quiz
-          côté tableau avant de lancer la manche.
+          Rien à afficher pour l&apos;instant : la manche n&apos;a pas encore de surface jouable (quiz à lancer depuis
+          l&apos;animateur, média iframe/YouTube en chargement ou indisponible).
         </p>
       </section>
     );
@@ -1138,7 +1266,10 @@ function Play(): JSX.Element {
           <div className="bz-buzz-closed">
             <span className="bz-pill">buzzer fermé</span>
             <p>
-              {snap.gameBoard !== null && snap.gameBoard.kind === "video"
+              {snap.gameBoard !== null &&
+              (snap.gameBoard.kind === "video" ||
+                snap.gameBoard.kind === "youtube" ||
+                snap.gameBoard.kind === "iframe")
                 ? "Regarde la vidéo — l'animateur peut la relancer pour tout le monde."
                 : snap.state === "lobby"
                 ? "En attente du démarrage de la manche par l'animateur."
@@ -1238,6 +1369,12 @@ function Admin(): JSX.Element {
   const [adminBootstrap, setAdminBootstrap] = useState<"loading" | "ready" | "unavailable">(
     "loading",
   );
+  /** * Why host bootstrap landed on « unavailable » (for wording + retry affordance). */
+  const [adminUnavailableKind, setAdminUnavailableKind] = useState<
+    "gone" | "bad_token" | "network" | "http" | null
+  >(null);
+  /** * Bumped to replay the bootstrap fetch without changing Bearer or party id (network flake). */
+  const [adminBootstrapRetryNonce, setAdminBootstrapRetryNonce] = useState(0);
 
   /** * Popup: append a scripted manche (pack, iframe site, or YouTube). */
   const [addMancheOpen, setAddMancheOpen] = useState(false);
@@ -1272,29 +1409,39 @@ function Admin(): JSX.Element {
     if (!pid || bearer === "") return undefined;
 
     let cancelled = false;
+    const ac = new AbortController();
     setAdminBootstrap("loading");
     setSnap(null);
+    setAdminUnavailableKind(null);
 
-    void fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(pid)}`, {
-      headers: { Authorization: `Bearer ${bearer}` },
-    })
-      .then((s2) => {
-        if (!cancelled) {
-          setSnap(s2);
-          setAdminBootstrap("ready");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSnap(null);
-          setAdminBootstrap("unavailable");
-        }
-      });
+    void (async () => {
+      const outcome = await loadPartySnapshot(pid, { bearer, signal: ac.signal });
+      if (cancelled) return;
+      if (outcome.kind === "aborted") return;
+      if (outcome.kind === "ok") {
+        setSnap(outcome.snapshot);
+        setAdminBootstrap("ready");
+        return;
+      }
+      setSnap(null);
+      if (outcome.kind === "not_found") {
+        purgeAdminSessionForPartyRouteId(pid);
+        setToken(null);
+        setAdminUnavailableKind("gone");
+      } else if (outcome.kind === "bad_token") {
+        purgeAdminSessionForPartyRouteId(pid);
+        setToken(null);
+        setAdminUnavailableKind("bad_token");
+      } else if (outcome.kind === "network") setAdminUnavailableKind("network");
+      else setAdminUnavailableKind("http");
+      setAdminBootstrap("unavailable");
+    })();
 
     return (): void => {
       cancelled = true;
+      ac.abort();
     };
-  }, [pid, bearer]);
+  }, [pid, bearer, adminBootstrapRetryNonce]);
 
   useEffect(() => {
     if (!pid || bearer === "" || adminBootstrap !== "ready") return undefined;
@@ -1546,24 +1693,65 @@ function Admin(): JSX.Element {
   if (adminBootstrap === "unavailable")
     return (
       <Shell title="Animateur">
-        <p>
-          Impossible de charger cette partie : elle n’existe plus sur le serveur (après une période
-          d’inactivité ou un redémarrage) ou une erreur réseau s’est produite.
-        </p>
-        <p>
-          Le lien « Reprendre » sur l’accueil ne peut pas restaurer une partie effacée ; il faut en
-          créer une nouvelle.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            purgeAdminSessionForPartyRouteId(pid);
-            setToken(null);
-            nav("/", { replace: true });
-          }}
-        >
-          Retour à l’accueil et effacer ce jeton animateur
-        </button>
+        {adminUnavailableKind === "gone" ? (
+          <>
+            <p>
+              Impossible de charger cette partie&nbsp;: elle n’existe plus sur le serveur (après une
+              période d’inactivité ou un redémarrage du service).
+            </p>
+            <p>
+              Le lien « Reprendre » ou le jeton enregistré dans ce navigateur ne peut pas recréer une
+              session effacée côté serveur.
+            </p>
+          </>
+        ) : adminUnavailableKind === "bad_token" ? (
+          <>
+            <p>
+              Le jeton animateur enregistré dans ce navigateur n&apos;est pas accepté pour cette partie
+              (session régénérée, autre serveur, ou jeton expiré). La reprise du tableau est impossible avec ce
+              jeton.
+            </p>
+            <p>
+              Si la partie existe encore, il faut un lien administrateur complet avec{" "}
+              <code className="bz-code">#token=…</code> ou créer une nouvelle partie.
+            </p>
+          </>
+        ) : adminUnavailableKind === "network" ? (
+          <>
+            <p>
+              Impossible de contacter le serveur depuis ce navigateur (réseau, coupure temporaire,
+              proxy&nbsp;…). Vérifie ta connexion puis réessaie.
+            </p>
+            <p>
+              Les données de partie et ton jeton n’ont pas été effacés : un simple problème réseau
+              peut aussi provoquer ce message.
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              Le serveur a renvoyé une erreur inattendue en chargeant cette partie (code HTTP différent de
+              404 ou réponse illisible). Réessaie plus tard ou contacte l’administrateur.
+            </p>
+          </>
+        )}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
+          {adminUnavailableKind === "network" ? (
+            <button type="button" onClick={() => setAdminBootstrapRetryNonce((x) => x + 1)}>
+              Réessayer
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              purgeAdminSessionForPartyRouteId(pid);
+              setToken(null);
+              nav("/", { replace: true });
+            }}
+          >
+            Retour à l’accueil et effacer ce jeton animateur
+          </button>
+        </div>
       </Shell>
     );
 
@@ -1631,32 +1819,20 @@ function Admin(): JSX.Element {
             Aucune manche pour l&apos;instant — utilisez « + » pour ajouter un pack, une page (HTTPS) ou YouTube.
           </p>
         ) : (
-          <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 0" }}>
+          <ul className="bz-manche-list">
             {snap.mancheScript.map((mancheRow, mi) => {
               const playing =
                 snap.activeMancheId === mancheRow.id && snap.state === "round_active";
               return (
                 <li
                   key={mancheRow.id}
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 12px",
-                    marginBottom: 10,
-                    borderRadius: 8,
-                    border: `1px solid ${playing ? "#6fa8dc" : "#ddd"}`,
-                    background: playing ? "#f5faff" : "#fafafa",
-                  }}
+                  className={playing ? "bz-manche-row bz-manche-row--playing" : "bz-manche-row"}
                 >
-                  <span style={{ flex: "1 1 200px", minWidth: 0 }}>
+                  <span className="bz-manche-row-title">
                     <strong>{mancheRow.title}</strong>
-                    <span style={{ opacity: 0.75, marginLeft: 8 }}>
-                      ({mancheKindShort(mancheRow.kind)})
-                    </span>
+                    <span className="bz-manche-row-kind bz-muted">({mancheKindShort(mancheRow.kind)})</span>
                     {playing ? (
-                      <span style={{ marginLeft: 8, color: "#2874a6", fontSize: 13 }}>● en cours</span>
+                      <span className="bz-manche-row-live">● en cours</span>
                     ) : null}
                   </span>
                   <button type="button" title="Jouer cette manche" onClick={() => void onHostManchePlay(mancheRow.id)}>
@@ -1724,16 +1900,7 @@ function Admin(): JSX.Element {
       {addMancheOpen ? (
         <div
           role="presentation"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            background: "rgba(0,0,0,0.42)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
+          className="bz-modal-overlay"
           onMouseDown={(evt) => {
             if (evt.target === evt.currentTarget) setAddMancheOpen(false);
           }}
@@ -1742,36 +1909,18 @@ function Admin(): JSX.Element {
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-manche-title"
-            style={{
-              width: "100%",
-              maxWidth: 540,
-              maxHeight: "90vh",
-              overflowY: "auto",
-              padding: "22px 24px",
-              borderRadius: 12,
-              background: "#fff",
-              boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
-            }}
+            className="bz-modal-dialog"
             onMouseDown={(evt) => {
               evt.stopPropagation();
             }}
           >
-            <h2 id="add-manche-title" style={{ marginTop: 0 }}>
-              Ajouter une manche à la liste
-            </h2>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <h2 id="add-manche-title">Ajouter une manche à la liste</h2>
+            <div className="bz-modal-tab-row">
               <button
                 type="button"
                 aria-pressed={addMancheFlavor === "pack"}
                 onClick={() => setAddMancheFlavor("pack")}
-                style={{
-                  fontWeight: addMancheFlavor === "pack" ? 700 : 400,
-                  background: addMancheFlavor === "pack" ? "#e8f4fc" : "#f5f5f5",
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                }}
+                className="bz-modal-tab"
               >
                 Pack quiz
               </button>
@@ -1779,14 +1928,7 @@ function Admin(): JSX.Element {
                 type="button"
                 aria-pressed={addMancheFlavor === "site"}
                 onClick={() => setAddMancheFlavor("site")}
-                style={{
-                  fontWeight: addMancheFlavor === "site" ? 700 : 400,
-                  background: addMancheFlavor === "site" ? "#e8f4fc" : "#f5f5f5",
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                }}
+                className="bz-modal-tab"
               >
                 Site (iframe) ou YouTube
               </button>
@@ -1835,7 +1977,7 @@ function Admin(): JSX.Element {
                     onChange={(ev2) => setModalMancheTitle(ev2.target.value)}
                   />
                 </label>
-                <fieldset style={{ border: "1px solid #ddd", borderRadius: 8, margin: "0 0 14px", padding: 12 }}>
+                <fieldset className="bz-modal-fieldset">
                   <legend>Type de lien</legend>
                   <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
                     <input
@@ -1867,10 +2009,30 @@ function Admin(): JSX.Element {
                     onChange={(ev2) => setModalSiteUrl(ev2.target.value)}
                   />
                 </label>
+                <p className="bz-modal-embed-tip">
+                  {modalSiteKind === "youtube" ? (
+                    <>
+                      Lecture via{" "}
+                      <code className="bz-code">youtube-nocookie.com</code> (moins de pistage). Si la console
+                      affiche <code className="bz-code">ERR_BLOCKED_BY_CLIENT</code> ou « Se connecter », un
+                      bloqueur de pubs / la navigation privée peut bloquer les scripts du lecteur&nbsp;; testez
+                      sans extension ou sur un autre navigateur.
+                    </>
+                  ) : (
+                    <>
+                      Certaines pages refusent tout cadre externe (erreur{" "}
+                      <code className="bz-code">frame-ancestors</code>
+                      ). Un site réservé à être embarqué seulement dans YouTube (
+                      <code className="bz-code">tournesol.app</code> est un exemple) ne s&apos;affiche pas ici :
+                      passez une vraie page HTTPS autorisée, ou utilisez «&nbsp;Vidéo YouTube&nbsp;» pour
+                      YouTube.
+                    </>
+                  )}
+                </p>
               </>
             )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 22 }}>
+            <div className="bz-modal-actions">
               <button
                 type="button"
                 onClick={() => {
@@ -1881,7 +2043,7 @@ function Admin(): JSX.Element {
               >
                 Annuler
               </button>
-              <button type="button" onClick={() => void onHostMancheSubmitAdd()}>
+              <button type="button" className="bz-primary" onClick={() => void onHostMancheSubmitAdd()}>
                 Ajouter cette manche
               </button>
             </div>
