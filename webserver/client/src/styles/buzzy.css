@@ -1,5 +1,7 @@
 /* ────────────────────────────────────────────────────────────────
  * Buzzy — design tokens & base style overrides
+ * Phase 1 (theme) + Phase 2 (Home hero & resume cards).
+ *
  * Drop-in stylesheet. Adds CSS variables + restyles native elements
  * (button, input, select, textarea, h1, h2, a) within the .bz-app
  * scope so existing JSX keeps working without changes.
@@ -32,6 +34,7 @@
   --bz-good-ink: #06321b;
   --bz-bad: #ff3d5a;
   --bz-info: #39ccff;
+  --bz-info-soft: rgba(57, 204, 255, 0.16);
 
   /* Type */
   --bz-f-display: "Bricolage Grotesque", system-ui, sans-serif;
@@ -45,7 +48,6 @@
   --bz-r-pill: 999px;
 }
 
-/* Page-level: html/body inherit so even pre-Shell error screens are themed */
 html,
 body {
   background: var(--bz-bg);
@@ -58,8 +60,7 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────
- * .bz-app — Shell wrapper. All native-element overrides live here
- * so they DON'T leak into 3rd-party widgets if you ever add some.
+ * .bz-app — Shell wrapper. All native-element overrides live here.
  * ────────────────────────────────────────────────────────────── */
 
 .bz-app {
@@ -72,9 +73,7 @@ body {
   font-family: var(--bz-f-body);
 }
 
-.bz-app * {
-  box-sizing: border-box;
-}
+.bz-app * { box-sizing: border-box; }
 
 .bz-app h1,
 .bz-app h2,
@@ -88,14 +87,8 @@ body {
 }
 
 .bz-app strong,
-.bz-app b {
-  color: var(--bz-text-strong);
-}
+.bz-app b { color: var(--bz-text-strong); }
 
-/* Mono-friendly: party codes (currently rendered as <strong>TLVDV5</strong>) */
-.bz-app strong:only-child {
-  /* No-op — but the .bz-code class below is the canonical hook */
-}
 .bz-app .bz-code,
 .bz-app code {
   font-family: var(--bz-f-mono);
@@ -116,15 +109,13 @@ body {
   border-radius: 4px;
   transition: color 120ms ease, background 120ms ease;
 }
-.bz-app a:hover {
-  color: var(--bz-text-strong);
-}
+.bz-app a:hover { color: var(--bz-text-strong); }
 .bz-app a:focus-visible {
   outline: 2px solid var(--bz-accent);
   outline-offset: 2px;
 }
 
-/* Buttons — original code has no inline style on <button>, so this wins */
+/* Buttons */
 .bz-app button {
   font-family: var(--bz-f-body);
   font-weight: 600;
@@ -147,20 +138,12 @@ body {
   background: var(--bz-surface-2);
   border-color: var(--bz-line-strong);
 }
-.bz-app button:active {
-  transform: translateY(1px);
-}
-.bz-app button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+.bz-app button:active { transform: translateY(1px); }
+.bz-app button:disabled { opacity: 0.45; cursor: not-allowed; }
 .bz-app button:focus-visible {
   outline: 2px solid var(--bz-accent);
   outline-offset: 2px;
 }
-
-/* Submit buttons get the primary accent — convention covers the major
- * "Rejoindre / Créer / Lancer la manche" actions without a code change. */
 .bz-app button[type="submit"],
 .bz-app .bz-primary {
   background: var(--bz-accent);
@@ -172,12 +155,9 @@ body {
     0 10px 24px color-mix(in oklab, var(--bz-accent) 30%, transparent);
 }
 .bz-app button[type="submit"]:hover,
-.bz-app .bz-primary:hover {
-  background: var(--bz-accent);
-  filter: brightness(1.06);
-}
+.bz-app .bz-primary:hover { filter: brightness(1.06); }
 
-/* Inputs / textarea / select */
+/* Inputs */
 .bz-app input[type="text"],
 .bz-app input[type="number"],
 .bz-app input[type="email"],
@@ -197,11 +177,8 @@ body {
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .bz-app textarea {
-  height: auto;
-  padding: 12px;
-  line-height: 1.45;
-  resize: vertical;
-  min-height: 80px;
+  height: auto; padding: 12px; line-height: 1.45;
+  resize: vertical; min-height: 80px;
 }
 .bz-app input:focus,
 .bz-app textarea:focus,
@@ -210,9 +187,7 @@ body {
   box-shadow: 0 0 0 3px var(--bz-accent-soft);
 }
 .bz-app input::placeholder,
-.bz-app textarea::placeholder {
-  color: var(--bz-faint);
-}
+.bz-app textarea::placeholder { color: var(--bz-faint); }
 
 .bz-app label {
   font-size: 13px;
@@ -222,50 +197,30 @@ body {
   gap: 8px;
 }
 .bz-app label input,
-.bz-app label select {
-  width: auto;
-  margin-left: 6px;
-}
+.bz-app label select { width: auto; margin-left: 6px; }
 .bz-app input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 16px; height: 16px;
   accent-color: var(--bz-accent);
   margin: 0;
 }
 
-/* Lists */
-.bz-app ul,
-.bz-app ol {
-  padding-left: 20px;
-}
-.bz-app li {
-  margin: 4px 0;
-}
+.bz-app ul, .bz-app ol { padding-left: 20px; }
+.bz-app li { margin: 4px 0; }
+.bz-app p { margin: 8px 0; }
+.bz-app .bz-muted { color: var(--bz-muted); }
+.bz-app section { margin-top: 14px; }
 
-/* Paragraphs / muted helper */
-.bz-app p {
-  margin: 8px 0;
-}
-.bz-app .bz-muted {
-  color: var(--bz-muted);
-}
-
-/* Re-skin existing dashed/bordered sections (used for Zone de jeu cards).
- * Selector kept narrow to avoid hitting unrelated divs. */
-.bz-app section {
-  margin-top: 14px;
-}
-
-/* The party-meta "Reprendre" cards in Home use inline border:1px solid #ddd
- * which beats our CSS — see App.tsx Shell migration for the .bz-card class. */
+/* Card */
 .bz-app .bz-card {
   background: var(--bz-surface);
   border: 1px solid var(--bz-line);
   border-radius: var(--bz-r-lg);
-  padding: 16px;
+  padding: 20px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 8px 28px rgba(0, 0, 0, 0.32);
+  display: block;
 }
 
+/* Pill */
 .bz-app .bz-pill {
   display: inline-flex;
   align-items: center;
@@ -281,30 +236,12 @@ body {
   color: var(--bz-text);
   border: 1px solid var(--bz-line);
 }
-.bz-app .bz-pill.bz-live {
-  background: rgba(255, 61, 90, 0.14);
-  color: var(--bz-bad);
-  border-color: transparent;
-}
-.bz-app .bz-pill.bz-good {
-  background: rgba(57, 233, 145, 0.14);
-  color: var(--bz-good);
-  border-color: transparent;
-}
-.bz-app .bz-pill.bz-accent {
-  background: var(--bz-accent-soft);
-  color: var(--bz-accent);
-  border-color: transparent;
-}
-.bz-app .bz-pill .bz-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
-}
-.bz-app .bz-pill.bz-live .bz-dot {
-  animation: bz-pulse 1.4s ease-in-out infinite;
-}
+.bz-app .bz-pill.bz-live { background: rgba(255, 61, 90, 0.14); color: var(--bz-bad); border-color: transparent; }
+.bz-app .bz-pill.bz-good { background: rgba(57, 233, 145, 0.14); color: var(--bz-good); border-color: transparent; }
+.bz-app .bz-pill.bz-accent { background: var(--bz-accent-soft); color: var(--bz-accent); border-color: transparent; }
+.bz-app .bz-pill.bz-info { background: var(--bz-info-soft); color: var(--bz-info); border-color: transparent; }
+.bz-app .bz-pill .bz-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+.bz-app .bz-pill.bz-live .bz-dot { animation: bz-pulse 1.4s ease-in-out infinite; }
 
 @keyframes bz-pulse {
   0%, 100% { opacity: 0.4; transform: scale(0.9); }
@@ -347,13 +284,8 @@ body {
   margin-left: auto;
   font-size: 14px;
 }
-.bz-header nav a {
-  color: var(--bz-muted);
-  font-weight: 500;
-}
-.bz-header nav a:hover {
-  color: var(--bz-text);
-}
+.bz-header nav a { color: var(--bz-muted); font-weight: 500; }
+.bz-header nav a:hover { color: var(--bz-text); }
 .bz-header .bz-page-title {
   font-family: var(--bz-f-display);
   font-size: 18px;
@@ -364,12 +296,131 @@ body {
   padding-left: 18px;
 }
 
-/* Error helper — keeps the existing color:"crimson" inline rule readable
- * by softening surface around it (the inline color still wins). */
+/* Error helper */
 .bz-app p[style*="crimson"] {
   background: rgba(255, 61, 90, 0.08);
   border: 1px solid rgba(255, 61, 90, 0.3);
   border-radius: var(--bz-r-md);
   padding: 10px 12px;
   margin: 12px 0;
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * Phase 2 — Home (hero + resume cards)
+ * ────────────────────────────────────────────────────────────── */
+
+.bz-app .bz-hero {
+  padding: 24px 0 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+}
+.bz-app .bz-eyebrow {
+  font-family: var(--bz-f-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+}
+.bz-app .bz-hero-title {
+  font-size: clamp(40px, 6vw, 64px);
+  line-height: 1.0;
+  margin: 0;
+  letter-spacing: -0.035em;
+}
+.bz-app .bz-hero-lead {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--bz-muted);
+  margin: 0;
+  max-width: 520px;
+}
+
+/* CTA buttons rendered as <Link> — use anchor-as-button styling */
+.bz-app .bz-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.bz-app .bz-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  padding: 0 22px;
+  border-radius: var(--bz-r-lg);
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid var(--bz-line-strong);
+  background: var(--bz-surface);
+  color: var(--bz-text);
+  text-decoration: none;
+  transition: transform 80ms ease, filter 120ms ease, background 120ms ease;
+}
+.bz-app .bz-cta:hover { background: var(--bz-surface-2); color: var(--bz-text-strong); }
+.bz-app .bz-cta:active { transform: translateY(1px); }
+.bz-app .bz-cta.bz-primary {
+  background: var(--bz-accent);
+  color: var(--bz-accent-ink);
+  border-color: transparent;
+  box-shadow:
+    0 2px 0 color-mix(in oklab, var(--bz-accent) 50%, #000),
+    0 12px 28px color-mix(in oklab, var(--bz-accent) 30%, transparent);
+}
+.bz-app .bz-cta.bz-primary:hover { filter: brightness(1.06); color: var(--bz-accent-ink); }
+
+/* Resume cards — clickable anchor cards */
+.bz-app .bz-resume-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 24px 0;
+}
+@media (min-width: 680px) {
+  .bz-app .bz-resume-grid { grid-template-columns: 1fr 1fr; }
+}
+.bz-app .bz-resume-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  text-decoration: none;
+  color: var(--bz-text);
+  transition: border-color 120ms ease, transform 120ms ease, background 120ms ease;
+}
+.bz-app .bz-resume-card:hover {
+  border-color: var(--bz-accent);
+  background: linear-gradient(180deg, var(--bz-surface), color-mix(in oklab, var(--bz-surface) 88%, var(--bz-accent) 12%));
+  color: var(--bz-text);
+}
+.bz-app .bz-resume-card h2 {
+  font-size: 22px;
+  margin: 0;
+}
+.bz-app .bz-resume-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--bz-muted);
+  line-height: 1.5;
+}
+.bz-app .bz-resume-foot {
+  margin-top: auto;
+  padding-top: 6px;
+  font-size: 13px;
+  color: var(--bz-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bz-app .bz-resume-foot .bz-arrow {
+  margin-left: auto;
+  color: var(--bz-accent);
+  font-weight: 700;
+}
+.bz-app .bz-resume-foot code {
+  letter-spacing: 0.18em;
 }

@@ -429,51 +429,74 @@ function Home(): JSX.Element {
   }, []);
 
   return (
-    <Shell title="Buzzy · live quiz">
-      <p>Quiz temps réel : lobby commun, buzzer et scores synchronisés.</p>
-      {playerResume !== null ? (
-        <section className="bz-card" style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 16, marginTop: 0 }}>Reprendre (joueur)</h2>
-          <p style={{ marginBottom: 8 }}>
-            Une session joueur est enregistrée dans cet onglet (équivalent d’un cookie de session pour
-            ce site).
-          </p>
-          <p style={{ margin: 0 }}>
-            <Link to={`/party/${encodeURIComponent(playerResume.partyId)}/play`}>
-              Ouvrir le lobby / la partie
+    <Shell title="Accueil">
+      <section className="bz-hero">
+        <span className="bz-eyebrow">Live quiz · soirées en temps réel</span>
+        <h1 className="bz-hero-title">
+          Le buzzer<br />dans la poche.
+        </h1>
+        <p className="bz-hero-lead">
+          Un code, un QR, et tes joueurs buzzent depuis leur téléphone
+          pendant que tu fais défiler les questions ou la vidéo — tout
+          est synchronisé.
+        </p>
+        <div className="bz-cta-row">
+          <Link to="/create" className="bz-cta bz-primary">
+            Créer une partie
+          </Link>
+          <Link to="/join" className="bz-cta">
+            Rejoindre avec un code
+          </Link>
+        </div>
+      </section>
+
+      {(playerResume !== null || adminResume !== null) ? (
+        <section className="bz-resume-grid">
+          {playerResume !== null ? (
+            <Link
+              to={`/party/${encodeURIComponent(playerResume.partyId)}/play`}
+              className="bz-card bz-resume-card"
+            >
+              <span className="bz-pill bz-accent">session joueur</span>
+              <h2>Reprendre le lobby</h2>
+              <p>
+                Une session joueur est enregistrée dans cet onglet —
+                tu peux retourner directement dans la partie.
+              </p>
+              <span className="bz-resume-foot">
+                {playerResume.joinCode.length >= 4 ? (
+                  <>code <code className="bz-code">{playerResume.joinCode}</code></>
+                ) : (
+                  <>session active</>
+                )}
+                <span className="bz-arrow" aria-hidden="true">→</span>
+              </span>
             </Link>
-            {playerResume.joinCode.length >= 4 ? (
-              <>
-                {" "}
-                · code <code className="bz-code">{playerResume.joinCode}</code>
-              </>
-            ) : null}
-          </p>
+          ) : null}
+
+          {adminResume !== null ? (
+            <Link
+              to={`/party/${encodeURIComponent(adminResume.partyId)}/admin`}
+              className="bz-card bz-resume-card"
+            >
+              <span className="bz-pill bz-info">jeton animateur</span>
+              <h2>Reprendre le tableau</h2>
+              <p>
+                Ton jeton d'animateur est encore actif sur ce navigateur —
+                tu peux rouvrir le tableau de cette partie.
+              </p>
+              <span className="bz-resume-foot">
+                {adminResume.joinCode.length >= 4 ? (
+                  <>code joueurs <code className="bz-code">{adminResume.joinCode}</code></>
+                ) : (
+                  <>jeton actif</>
+                )}
+                <span className="bz-arrow" aria-hidden="true">→</span>
+              </span>
+            </Link>
+          ) : null}
         </section>
       ) : null}
-      {adminResume !== null ? (
-        <section className="bz-card" style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 16, marginTop: 0 }}>Reprendre (animateur)</h2>
-          <p style={{ marginBottom: 8 }}>
-            Le jeton d’animateur pour cette partie est encore présent dans la session du navigateur.
-          </p>
-          <p style={{ margin: 0 }}>
-            <Link to={`/party/${encodeURIComponent(adminResume.partyId)}/admin`}>
-              Ouvrir le tableau animateur
-            </Link>
-            {adminResume.joinCode.length >= 4 ? (
-              <>
-                {" "}
-                · code joueurs <code className="bz-code">{adminResume.joinCode}</code>
-              </>
-            ) : null}
-          </p>
-        </section>
-      ) : null}
-      <p>
-        <Link to="/create">Créer une partie</Link> ·{" "}
-        <Link to="/join">Rejoindre avec un code</Link>
-      </p>
     </Shell>
   );
 }
