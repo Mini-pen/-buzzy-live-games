@@ -412,7 +412,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 function Shell(props: { title: string; children: React.ReactNode }): JSX.Element {
   return (
     <div className="bz-app">
-      <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 24px 48px" }}>
+      <div
+        className={`bz-shell-container${props.wide ? " bz-shell--wide" : ""}`}
+      >
         <header className="bz-header">
           <Link to="/" className="bz-logo" style={{ fontSize: 24 }}>
             <span>buzzy</span>
@@ -1679,68 +1681,36 @@ function Admin(): JSX.Element {
 
   if (bearer === "")
     return (
-      <Shell title="Admin">
-        <p>Jeton animateur absent ou lien incomplet. Rouvrir le lien après création.</p>
-        <button type="button" onClick={() => nav("/create")}>
-          Créer une session
-        </button>
+      <Shell title="Animateur">
+        <div className="bz-card" style={{ marginTop: 24 }}>
+          <p style={{ marginTop: 0 }}>
+            Jeton animateur absent ou lien incomplet. Rouvrir le lien
+            après création.
+          </p>
+          <button type="button" className="bz-primary" onClick={() => nav("/create")}>
+            Créer une nouvelle partie
+          </button>
+        </div>
       </Shell>
     );
 
   if (adminBootstrap === "loading")
-    return <Shell title="Admin">Chargement…</Shell>;
+    return (
+      <Shell title="Animateur">
+        <p className="bz-muted">Chargement…</p>
+      </Shell>
+    );
 
   if (adminBootstrap === "unavailable")
     return (
       <Shell title="Animateur">
-        {adminUnavailableKind === "gone" ? (
-          <>
-            <p>
-              Impossible de charger cette partie&nbsp;: elle n’existe plus sur le serveur (après une
-              période d’inactivité ou un redémarrage du service).
-            </p>
-            <p>
-              Le lien « Reprendre » ou le jeton enregistré dans ce navigateur ne peut pas recréer une
-              session effacée côté serveur.
-            </p>
-          </>
-        ) : adminUnavailableKind === "bad_token" ? (
-          <>
-            <p>
-              Le jeton animateur enregistré dans ce navigateur n&apos;est pas accepté pour cette partie
-              (session régénérée, autre serveur, ou jeton expiré). La reprise du tableau est impossible avec ce
-              jeton.
-            </p>
-            <p>
-              Si la partie existe encore, il faut un lien administrateur complet avec{" "}
-              <code className="bz-code">#token=…</code> ou créer une nouvelle partie.
-            </p>
-          </>
-        ) : adminUnavailableKind === "network" ? (
-          <>
-            <p>
-              Impossible de contacter le serveur depuis ce navigateur (réseau, coupure temporaire,
-              proxy&nbsp;…). Vérifie ta connexion puis réessaie.
-            </p>
-            <p>
-              Les données de partie et ton jeton n’ont pas été effacés : un simple problème réseau
-              peut aussi provoquer ce message.
-            </p>
-          </>
-        ) : (
-          <>
-            <p>
-              Le serveur a renvoyé une erreur inattendue en chargeant cette partie (code HTTP différent de
-              404 ou réponse illisible). Réessaie plus tard ou contacte l’administrateur.
-            </p>
-          </>
-        )}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
-          {adminUnavailableKind === "network" ? (
-            <button type="button" onClick={() => setAdminBootstrapRetryNonce((x) => x + 1)}>
-              Réessayer
-            </button>
-          ) : null}
+        <div className="bz-card" style={{ marginTop: 24 }}>
+          <h2 style={{ marginTop: 0, fontSize: 22 }}>Partie indisponible</h2>
+          <p>
+            Cette partie n'existe plus côté serveur (inactivité ou
+            redémarrage). Le lien "Reprendre" sur l'accueil ne peut pas
+            restaurer une partie effacée.
+          </p>
           <button
             type="button"
             onClick={() => {
@@ -1749,14 +1719,17 @@ function Admin(): JSX.Element {
               nav("/", { replace: true });
             }}
           >
-            Retour à l’accueil et effacer ce jeton animateur
+            Retour à l'accueil
           </button>
         </div>
       </Shell>
     );
 
   if (snap === null)
-    return <Shell title="Admin">Synchronisation…</Shell>;
+    return (
+      <Shell title="Animateur">
+        <p className="bz-muted">Synchronisation…</p>
+      </Shell>
 
   const joinUrl = `${window.location.origin}/join?code=${encodeURIComponent(snap.joinCode)}`;
 
@@ -1768,384 +1741,229 @@ function Admin(): JSX.Element {
     snap.state === "round_active" && activeMancheEntry?.kind === "pack_quiz";
 
   return (
-    <Shell title={`Animateur · ${snap.joinCode}`}>
-      <p>
-        État : <strong>{snap.state}</strong>
-      </p>
-      <p>Code joueurs : <strong>{snap.joinCode}</strong></p>
-      <p>Lien rejoindre (partager) :</p>
-      <code style={{ wordBreak: "break-all", display: "block", marginBottom: 12 }}>{joinUrl}</code>
-      <figure style={{ margin: "16px 0" }}>
-        <QRCodeSVG
-          value={joinUrl}
-          size={220}
-          level="M"
-          includeMargin
-          aria-label="QR code rejoindre la partie"
-        />
-        <figcaption style={{ fontSize: 13, opacity: 0.85 }}>QR code (même URL que ci‑dessus)</figcaption>
-      </figure>
-      {err ? <pre style={{ color: "crimson", whiteSpace: "pre-wrap" }}>{err}</pre> : null}
-
-      <GameBoardPanel
-        board={snap.gameBoard ?? null}
-        partyState={snap.state}
-        revealCorrect
-      />
-
-      <section style={{ marginTop: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h2 style={{ margin: 0 }}>Liste des manches</h2>
-          <button
-            type="button"
-            title="Ajouter une manche"
-            aria-label="Ajouter une manche"
-            onClick={() => {
-              setErr(null);
-              setAddMancheOpen(true);
-              setModalMancheTitle("");
-              setModalSiteUrl("");
-            }}
-          >
-            +
-          </button>
-        </div>
-        <p style={{ margin: "8px 0 0", fontSize: 14, opacity: 0.85 }}>
-          Réordonnez avec les flèches ; ▶ met la manche en tête et la lance ; la progression d&apos;un pack quiz est
-          mémorisée pour la suite.
-        </p>
-        {snap.mancheScript.length === 0 ? (
-          <p style={{ marginTop: 10 }}>
-            Aucune manche pour l&apos;instant — utilisez « + » pour ajouter un pack, une page (HTTPS) ou YouTube.
-          </p>
-        ) : (
-          <ul className="bz-manche-list">
-            {snap.mancheScript.map((mancheRow, mi) => {
-              const playing =
-                snap.activeMancheId === mancheRow.id && snap.state === "round_active";
-              return (
-                <li
-                  key={mancheRow.id}
-                  className={playing ? "bz-manche-row bz-manche-row--playing" : "bz-manche-row"}
+    <Shell title={`Animateur · ${snap.joinCode}`} wide>
+      <div className="bz-host-layout">
+        <main className="bz-host-stage">
+          {/* Hero — code, share, QR */}
+          <section className="bz-host-hero">
+            <div className="bz-host-hero-info">
+              <span className="bz-eyebrow">code joueurs</span>
+              <div className="bz-host-code">{snap.joinCode}</div>
+              <div className="bz-host-join">
+                {window.location.host}/join?code=<strong>{snap.joinCode}</strong>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span
+                  className={`bz-pill ${
+                    snap.state === "round_active" ? "bz-live" : ""
+                  }`}
                 >
-                  <span className="bz-manche-row-title">
-                    <strong>{mancheRow.title}</strong>
-                    <span className="bz-manche-row-kind bz-muted">({mancheKindShort(mancheRow.kind)})</span>
-                    {playing ? (
-                      <span className="bz-manche-row-live">● en cours</span>
+                  {snap.state === "round_active" ? (
+                    <span className="bz-dot" />
+                  ) : null}
+                  {snap.state}
+                </span>
+                <span className="bz-pill">
+                  {snap.players.length} joueur
+                  {snap.players.length === 1 ? "" : "s"}
+                </span>
+                {snap.buzzWindowOpen ? (
+                  <span className="bz-pill bz-good">
+                    <span className="bz-dot" />
+                    buzzer ouvert
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div className="bz-host-hero-qr">
+              <QRCodeSVG
+                value={joinUrl}
+                size={160}
+                level="M"
+                includeMargin
+                aria-label="QR code rejoindre la partie"
+              />
+              <span className="bz-host-qr-cap">scanne pour rejoindre</span>
+            </div>
+          </section>
+
+          {err ? <pre className="bz-err">{err}</pre> : null}
+
+          {/* Game board — same component, with revealCorrect for host */}
+          <GameBoardPanel
+            board={snap.gameBoard ?? null}
+            partyState={snap.state}
+            revealCorrect
+          />
+
+          {/* Pack picker */}
+          <section className="bz-host-pack">
+            <h2>Pack quiz</h2>
+            <div className="bz-host-pack-row">
+              <select
+                value={basename}
+                onChange={(e2) => setBasename(e2.target.value)}
+              >
+                {packsList.map((pk) => (
+                  <option key={pk.basename} value={pk.basename}>
+                    {pk.title} ({pk.roundCount ?? 0} manches)
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void applyPackMutation()}
+              >
+                Charger
+              </button>
+            </div>
+          </section>
+
+          {/* Sticky controls */}
+          <div className="bz-host-controls">
+            <button
+              type="button"
+              className="bz-primary"
+              onClick={() => void onHostRoundStart()}
+            >
+              ▶ Lancer la manche
+            </button>
+            <button type="button" onClick={() => void onHostRoundPause()}>
+              ⏸ Pause (lobby)
+            </button>
+            <button
+              type="button"
+              onClick={() => void onHostBuzzWindow(true)}
+            >
+              🔔 Ouvrir buzzer
+            </button>
+            <button
+              type="button"
+              onClick={() => void onHostBuzzWindow(false)}
+            >
+              ⏹ Fermer & purger
+            </button>
+            <button type="button" onClick={() => void onHostCueNext()}>
+              Question suivante →
+            </button>
+          </div>
+        </main>
+
+        <aside className="bz-host-aside">
+          {/* Buzz queue */}
+          <section className="bz-host-section">
+            <h2>
+              File de buzz
+              {snap.buzzOrder.length > 0 ? (
+                <span className="bz-pill bz-live">
+                  <span className="bz-dot" />
+                  live
+                </span>
+              ) : null}
+            </h2>
+            {snap.buzzOrder.length === 0 ? (
+              <p className="bz-muted" style={{ margin: 0, fontSize: 12 }}>
+                Vide.
+              </p>
+            ) : (
+              <ol className="bz-host-queue-list">
+                {snap.buzzOrder.map((idBuzz2, ix) => {
+                  const pw = snap.players.find((zz) => zz.id === idBuzz2);
+                  return (
+                    <li key={`${idBuzz2}-${ix}`}>
+                      <span className="bz-rank">{ix + 1}</span>
+                      <span className="bz-name">
+                        {pw?.displayName ?? idBuzz2}
+                      </span>
+                      {pw?.teamId != null ? (
+                        <span className="bz-host-team">éq. {pw.teamId}</span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
+
+          {/* Scoreboard */}
+          <section className="bz-host-section">
+            <h2>Scores</h2>
+            <ul className="bz-host-scores">
+              {sortedPlayers.map((pl2, idx) => (
+                <li key={pl2.id} className="bz-host-score-row">
+                  <span className="bz-host-rank">{idx + 1}</span>
+                  <span className="bz-host-name">
+                    {pl2.displayName}
+                    {pl2.teamId != null ? (
+                      <span className="bz-host-team">éq. {pl2.teamId}</span>
                     ) : null}
                   </span>
-                  <button type="button" title="Jouer cette manche" onClick={() => void onHostManchePlay(mancheRow.id)}>
-                    ▶
-                  </button>
-                  <button
-                    type="button"
-                    disabled={mi === 0}
-                    title="Monter dans la liste"
-                    aria-label="Monter dans la liste"
-                    onClick={() => void onHostMancheMove(mancheRow.id, "up")}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={mi === snap.mancheScript.length - 1}
-                    title="Descendre dans la liste"
-                    aria-label="Descendre dans la liste"
-                    onClick={() => void onHostMancheMove(mancheRow.id, "down")}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    title="Supprimer cette manche"
-                    aria-label="Supprimer cette manche"
-                    onClick={() => void onHostMancheRemove(mancheRow.id)}
-                  >
-                    🗑
-                  </button>
+                  <span className="bz-host-score-value">{pl2.score}</span>
+                  <span className="bz-host-delta">
+                    <input
+                      value={deltaById[pl2.id] ?? ""}
+                      placeholder="±"
+                      onChange={(ev) =>
+                        setDeltaById((m) => ({
+                          ...m,
+                          [pl2.id]: ev.target.value,
+                        }))
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void onDeltaScoreApply(pl2.id)}
+                    >
+                      OK
+                    </button>
+                  </span>
                 </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+              ))}
+            </ul>
+          </section>
 
-      <section style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
-        <button type="button" onClick={() => void onHostRoundPause()}>
-          Mettre en pause (retour joueurs au lobby)
-        </button>
-        {snap.state === "round_active" ? (
-          <button
-            type="button"
-            aria-pressed={snap.buzzWindowOpen}
-            title={
-              snap.buzzWindowOpen
-                ? "Désactive le buzzer : les joueurs ne peuvent plus buzzer et la file d’ordre est vidée."
-                : "Réactive le buzzer pour cette manche ; la liste des buzz démarre vide."
-            }
-            onClick={() => void onHostBuzzWindow(!snap.buzzWindowOpen)}
-          >
-            Buzzer&nbsp;: {snap.buzzWindowOpen ? "ON" : "OFF"}
-            {snap.buzzWindowOpen ? " (ouvert)" : " (fermé · file purgee)"}
-          </button>
-        ) : null}
-        {showQuizCueButtons ? (
-          <button type="button" onClick={() => void onHostCueNext()}>
-            Question suivante / rejouer la vidéo du pack
-          </button>
-        ) : null}
-      </section>
-
-      {addMancheOpen ? (
-        <div
-          role="presentation"
-          className="bz-modal-overlay"
-          onMouseDown={(evt) => {
-            if (evt.target === evt.currentTarget) setAddMancheOpen(false);
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-manche-title"
-            className="bz-modal-dialog"
-            onMouseDown={(evt) => {
-              evt.stopPropagation();
-            }}
-          >
-            <h2 id="add-manche-title">Ajouter une manche à la liste</h2>
-            <div className="bz-modal-tab-row">
-              <button
-                type="button"
-                aria-pressed={addMancheFlavor === "pack"}
-                onClick={() => setAddMancheFlavor("pack")}
-                className="bz-modal-tab"
-              >
-                Pack quiz
-              </button>
-              <button
-                type="button"
-                aria-pressed={addMancheFlavor === "site"}
-                onClick={() => setAddMancheFlavor("site")}
-                className="bz-modal-tab"
-              >
-                Site (iframe) ou YouTube
-              </button>
-            </div>
-
-            {addMancheFlavor === "pack" ? (
-              <>
-                <label style={{ display: "block", marginBottom: 10 }}>
-                  Pack à ajouter à la liste
-                  <select
-                    style={{ display: "block", width: "100%", marginTop: 6 }}
-                    value={
-                      modalPackBasename !== "" && packsList.some((p2) => p2.basename === modalPackBasename)
-                        ? modalPackBasename
-                        : packsList[0]?.basename ?? ""
-                    }
-                    onChange={(ev2) => setModalPackBasename(ev2.target.value)}
-                  >
-                    {packsList.map((pk) => (
-                      <option key={pk.basename} value={pk.basename}>
-                        {pk.title} ({pk.roundCount ?? 0} manches)
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label style={{ display: "block", marginBottom: 8 }}>
-                  Titre dans la liste (optionnel ; par défaut le titre du pack)
-                  <input
-                    type="text"
-                    style={{ display: "block", width: "100%", marginTop: 6, boxSizing: "border-box" }}
-                    placeholder="Laisser vide pour reprendre le nom du JSON"
-                    value={modalMancheTitle}
-                    onChange={(ev2) => setModalMancheTitle(ev2.target.value)}
-                  />
-                </label>
-              </>
-            ) : (
-              <>
-                <label style={{ display: "block", marginBottom: 12 }}>
-                  Titre dans la liste
-                  <input
-                    type="text"
-                    style={{ display: "block", width: "100%", marginTop: 6, boxSizing: "border-box" }}
-                    placeholder="Ex. Présentation du sponsor"
-                    value={modalMancheTitle}
-                    onChange={(ev2) => setModalMancheTitle(ev2.target.value)}
-                  />
-                </label>
-                <fieldset className="bz-modal-fieldset">
-                  <legend>Type de lien</legend>
-                  <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
-                    <input
-                      type="radio"
-                      name="modal-site-kind"
-                      checked={modalSiteKind === "iframe"}
-                      onChange={() => setModalSiteKind("iframe")}
-                    />
-                    Page web (HTTPS) dans un iframe
-                  </label>
-                  <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", marginTop: 8 }}>
-                    <input
-                      type="radio"
-                      name="modal-site-kind"
-                      checked={modalSiteKind === "youtube"}
-                      onChange={() => setModalSiteKind("youtube")}
-                    />
-                    Vidéo YouTube (lien youtube.com ou youtu.be)
-                  </label>
-                </fieldset>
-                <label style={{ display: "block" }}>
-                  URL complète ({modalSiteKind === "iframe" ? "https://… uniquement pour l’iframe" : "coller depuis le navigateur"})
-                  <input
-                    type="url"
-                    autoComplete="url"
-                    style={{ display: "block", width: "100%", marginTop: 6, boxSizing: "border-box" }}
-                    placeholder={modalSiteKind === "iframe" ? "https://…" : "https://www.youtube.com/watch?v=…"}
-                    value={modalSiteUrl}
-                    onChange={(ev2) => setModalSiteUrl(ev2.target.value)}
-                  />
-                </label>
-                <p className="bz-modal-embed-tip">
-                  {modalSiteKind === "youtube" ? (
-                    <>
-                      Lecture via{" "}
-                      <code className="bz-code">youtube-nocookie.com</code> (moins de pistage). Si la console
-                      affiche <code className="bz-code">ERR_BLOCKED_BY_CLIENT</code> ou « Se connecter », un
-                      bloqueur de pubs / la navigation privée peut bloquer les scripts du lecteur&nbsp;; testez
-                      sans extension ou sur un autre navigateur.
-                    </>
-                  ) : (
-                    <>
-                      Certaines pages refusent tout cadre externe (erreur{" "}
-                      <code className="bz-code">frame-ancestors</code>
-                      ). Un site réservé à être embarqué seulement dans YouTube (
-                      <code className="bz-code">tournesol.app</code> est un exemple) ne s&apos;affiche pas ici :
-                      passez une vraie page HTTPS autorisée, ou utilisez «&nbsp;Vidéo YouTube&nbsp;» pour
-                      YouTube.
-                    </>
-                  )}
-                </p>
-              </>
-            )}
-
-            <div className="bz-modal-actions">
-              <button
-                type="button"
-                onClick={() => {
-                  setAddMancheOpen(false);
-                  setModalMancheTitle("");
-                  setModalSiteUrl("");
+          {/* Chat */}
+          <section className="bz-host-section bz-chat">
+            <h2>Chat</h2>
+            <ul className="bz-chat-list">
+              {snap.chatTail.length === 0 ? (
+                <li
+                  className="bz-chat-row bz-muted"
+                  style={{ fontSize: 12 }}
+                >
+                  Aucun message pour l'instant.
+                </li>
+              ) : (
+                snap.chatTail.slice(-80).map((m) => (
+                  <li key={m.id} className="bz-chat-row">
+                    <strong>{m.displayName}</strong>
+                    <span>{m.text}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+            <div className="bz-chat-input">
+              <textarea
+                rows={2}
+                value={hostChat}
+                placeholder="Message animateur…"
+                onChange={(evh) => setHostChat(evh.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || e.shiftKey) return;
+                  e.preventDefault();
+                  void onHostChatSend(e.currentTarget.value);
                 }}
+              />
+              <button
+                type="button"
+                onClick={() => void onHostChatSend()}
               >
-                Annuler
-              </button>
-              <button type="button" className="bz-primary" onClick={() => void onHostMancheSubmitAdd()}>
-                Ajouter cette manche
+                Publier
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
-
-      <section style={{ marginTop: 18 }}>
-        <h2>Buzz ordre courant</h2>
-        <ol>
-          {snap.buzzOrder.map((idBuzz2, ix) => {
-            const pw = snap.players.find((zz) => zz.id === idBuzz2);
-            return (
-              <li
-                key={`${idBuzz2}-${ix}`}
-                style={{ display: "flex", alignItems: "center", gap: 8 }}
-              >
-                {pw ? <AvatarFigure src={pw.avatarUrl} sizePx={28} /> : null}
-                <span>{pw?.displayName ?? idBuzz2}</span>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
-      <section style={{ marginTop: 18 }}>
-        <h2>Scores joueurs</h2>
-        <ul style={{ paddingLeft: 16 }}>
-          {snap.players.map((pl2) => (
-            <li
-              key={pl2.id}
-              style={{
-                marginBottom: 8,
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <AvatarFigure src={pl2.avatarUrl} sizePx={36} />
-              <span>
-                <strong>{pl2.displayName}</strong> ({pl2.score}{" "}
-                {pl2.score === 1 ? "pt" : "pts"})
-              </span>
-              <button
-                type="button"
-                aria-label={`Ajouter un point à ${pl2.displayName}`}
-                onClick={() => void onPlayerScoreDelta(pl2.id, 1)}
-              >
-                +1
-              </button>
-              <button
-                type="button"
-                aria-label={`Retirer un point à ${pl2.displayName}`}
-                onClick={() => void onPlayerScoreDelta(pl2.id, -1)}
-              >
-                −1
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section style={{ marginTop: 18 }}>
-        <h2>Fil de chat (joueurs + animateur)</h2>
-        {snap.chatTail.length === 0 ? (
-          <p style={{ margin: 0, opacity: 0.75 }}>Aucun message pour l’instant.</p>
-        ) : (
-          <ul
-            style={{
-              margin: "8px 0 0",
-              paddingLeft: 18,
-              maxHeight: 240,
-              overflowY: "auto",
-            }}
-          >
-            {snap.chatTail.slice(-80).map((m) => (
-              <li key={m.id} style={{ marginBottom: 8 }}>
-                <strong>{m.displayName}</strong> : {m.text}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section style={{ marginTop: 18 }}>
-        <h2>Messages animateur vers le chat</h2>
-        <textarea
-          rows={2}
-          style={{ width: "100%" }}
-          value={hostChat}
-          onChange={(evh) => setHostChat(evh.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.shiftKey) return;
-            e.preventDefault();
-            void onHostChatSend(e.currentTarget.value);
-          }}
-        />
-        <button type="button" onClick={() => void onHostChatSend()}>
-          Publier
-        </button>
-      </section>
+          </section>
+        </aside>
+      </div>
     </Shell>
   );
 }
