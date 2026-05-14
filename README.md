@@ -2,6 +2,8 @@
 
 Application de quiz / soirées en temps réel (API **Fastify**, SPA **React** + **Vite**, **Socket.IO**), déployable derrière **Traefik**.
 
+**Dépôt GitHub :** https://github.com/Mini-pen/buzzy-live-games
+
 - Plan produit et état du code : [DEV_PLAN.md](./DEV_PLAN.md)
 - Manuel build & déploiement : [manuel.md](./manuel.md)
 - Labels Traefik / HTTPS : [TRAEFIK.md](./TRAEFIK.md)

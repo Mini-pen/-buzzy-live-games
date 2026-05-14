@@ -1,6 +1,24 @@
 /** * Lifecycle of a party from the server's perspective. */
 export type PartyState = "lobby" | "round_active" | "between_rounds" | "ended";
 
+/** * Item in the host's ordered script (manches). */
+export type MancheKind = "pack_quiz" | "iframe" | "youtube" | "direct_video";
+
+export interface MancheCatalogItem {
+  id: string;
+  kind: MancheKind;
+  title: string;
+  /** * Basename keys `games/*.json` when `kind === pack_quiz`. */
+  packBasename: string | null;
+  iframeUrl: string | null;
+  /** * Normalised `https://www.youtube.com/embed/{id}` when `kind === youtube`. */
+  youtubeEmbedUrl: string | null;
+  directVideoUrl: string | null;
+  /** * Saved quiz position inside the loaded pack while this item is active. */
+  savedRoundIndex: number;
+  savedQuestionIndex: number;
+}
+
 export interface ChatEntry {
   id: string;
   playerId: string;
@@ -13,6 +31,8 @@ export interface ChatEntry {
 export interface Player {
   id: string;
   displayName: string;
+  /** * Slug referencing `/avatars/${avatarKey}.svg` from the SPA public directory. */
+  avatarKey: string;
   /** * 1-based team index when teams are enabled; otherwise null. */
   teamId: number | null;
   score: number;
@@ -42,8 +62,12 @@ export interface Party {
   currentRoundIndex: number | null;
   currentQuestionIndex: number | null;
   loadedPackId: string | null;
-  /** * Increments when the host replays a video round (“next” on `kind: video`). */
+  /** * Increments when replaying embedded media or switching surfaces. */
   videoReplaySerial: number;
+  /** * Host-defined ordered manches; index 0 is launched by « Play ». */
+  mancheScript: MancheCatalogItem[];
+  /** * Matches `mancheScript[0].id` while a manche is actively running. */
+  activeMancheId: string | null;
 }
 
 /** * Buzzer-visible quiz surface (`kind: quiz`). */
@@ -61,7 +85,7 @@ export interface PartyGameBoardQuiz {
   correctChoiceIndex?: number;
 }
 
-/** * Video segment surface; `replaySerial` forces clients to remount the `<video>` element. */
+/** * Video segment surface from a quiz pack JSON round. */
 export interface PartyGameBoardVideo {
   kind: "video";
   packTitle: string;
@@ -72,7 +96,27 @@ export interface PartyGameBoardVideo {
   replaySerial: number;
 }
 
-export type PartyGameBoardSurface = PartyGameBoardQuiz | PartyGameBoardVideo;
+/** * Host-provided iframe manche. */
+export interface PartyGameBoardIframe {
+  kind: "iframe";
+  title: string;
+  url: string;
+  replaySerial: number;
+}
+
+/** * Host-provided YouTube embed manche. */
+export interface PartyGameBoardYoutube {
+  kind: "youtube";
+  title: string;
+  embedUrl: string;
+  replaySerial: number;
+}
+
+export type PartyGameBoardSurface =
+  | PartyGameBoardQuiz
+  | PartyGameBoardVideo
+  | PartyGameBoardIframe
+  | PartyGameBoardYoutube;
 
 export interface PartyPublicSnapshot {
   id: string;
@@ -92,16 +136,20 @@ export interface PartyPublicSnapshot {
   players: Array<{
     id: string;
     displayName: string;
+    /** * Resolved path for `<img src>` (same-origin). */
+    avatarUrl: string;
     teamId: number | null;
     score: number;
   }>;
   teamScores: Record<string, number>;
   chatTail: ChatEntry[];
-  /** * Indices into `loadedPackId` quiz JSON; surfaced for sync; see `gameBoard` for wording. */
+  /** * Indices into loaded pack JSON when `gameBoard.kind === quiz|video` from pack. */
   currentRoundIndex: number | null;
   currentQuestionIndex: number | null;
-  /** * Non-null during `round_active` when the loaded pack resolves the indices. */
+  /** * Non-null during `round_active` when content resolves. */
   gameBoard: PartyGameBoardSurface | null;
+  mancheScript: MancheCatalogItem[];
+  activeMancheId: string | null;
 }
 
 /** * Stored inside the player JWT (`pid` mandatory; Fastify validates `sub` as player id). */

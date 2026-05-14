@@ -26,7 +26,54 @@ function deriveGameBoard(
   audience: "player" | "host",
 ): PartyGameBoardSurface | null {
   if (party.state !== "round_active") return null;
+  if (party.activeMancheId === null) return null;
+  const item = party.mancheScript.find((m) => m.id === party.activeMancheId);
+  if (item === undefined) return null;
+
+  if (item.kind === "iframe") {
+    if (typeof item.iframeUrl !== "string" || item.iframeUrl.trim() === "")
+      return null;
+    return {
+      kind: "iframe",
+      title: item.title,
+      url: item.iframeUrl,
+      replaySerial: party.videoReplaySerial,
+    };
+  }
+
+  if (item.kind === "youtube") {
+    if (
+      typeof item.youtubeEmbedUrl !== "string" ||
+      item.youtubeEmbedUrl.trim() === ""
+    )
+      return null;
+    return {
+      kind: "youtube",
+      title: item.title,
+      embedUrl: item.youtubeEmbedUrl,
+      replaySerial: party.videoReplaySerial,
+    };
+  }
+
+  if (item.kind === "direct_video") {
+    if (
+      typeof item.directVideoUrl !== "string" ||
+      item.directVideoUrl.trim() === ""
+    )
+      return null;
+    return {
+      kind: "video",
+      packTitle: item.title,
+      roundIndex: 0,
+      roundTitle: item.title,
+      roundNumberHuman: 1,
+      videoUrl: item.directVideoUrl,
+      replaySerial: party.videoReplaySerial,
+    };
+  }
+
   if (pack === null) return null;
+
   const ri = party.currentRoundIndex;
   const qi = party.currentQuestionIndex;
   if (
@@ -69,7 +116,7 @@ function deriveGameBoard(
   return surface;
 }
 
-/** * Assembles REST/socket snapshots with Buzzer-visible question text (`gameBoard`). */
+/** * Assembles REST/socket snapshots with playable surfaces (`gameBoard`). */
 export function partySnapshotWithGame(
   party: Party,
   packs: Map<string, QuizPack>,

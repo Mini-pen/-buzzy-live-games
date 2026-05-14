@@ -33,6 +33,9 @@ export function replyDomain(reply: FastifyReply, err: unknown): FastifyReply {
     BAD_ROUND: 400,
     BAD_QUESTION: 400,
     ROUND_EXHAUSTED: 409,
+    BAD_MOVE: 400,
+    BAD_YOUTUBE_URL: 400,
+    BAD_AVATAR: 400,
   };
 
   const status = map[code] ?? 400;

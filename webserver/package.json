@@ -2,6 +2,11 @@
   "name": "@buzzy-live-games/webserver",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mini-pen/buzzy-live-games.git",
+    "directory": "webserver"
+  },
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json && vite build --config client/vite.config.ts",

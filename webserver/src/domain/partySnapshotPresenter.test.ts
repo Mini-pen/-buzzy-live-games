@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { QuizPack } from "../games/pack.js";
-import type { Party } from "./types.js";
+import type { MancheCatalogItem, Party } from "./types.js";
 import { partySnapshotWithGame } from "./partySnapshotPresenter.js";
 
 const demoPack: QuizPack = {
@@ -60,8 +60,24 @@ function partyStub(over: Partial<Party>): Party {
     currentQuestionIndex: null,
     loadedPackId: null,
     videoReplaySerial: 0,
+    mancheScript: [],
+    activeMancheId: null,
   };
   return { ...base, ...over };
+}
+
+function quizMancheOverPack(basenameKey: string, idForItem = "mid-quiz"): MancheCatalogItem {
+  return {
+    id: idForItem,
+    kind: "pack_quiz",
+    title: basenameKey,
+    packBasename: basenameKey,
+    iframeUrl: null,
+    youtubeEmbedUrl: null,
+    directVideoUrl: null,
+    savedRoundIndex: 0,
+    savedQuestionIndex: 0,
+  };
 }
 
 describe("partySnapshotWithGame", () => {
@@ -77,6 +93,8 @@ describe("partySnapshotWithGame", () => {
       currentQuestionIndex: 0,
       loadedPackId: "demo-quiz-v1",
       hasStartedRound: true,
+      mancheScript: [quizMancheOverPack("example")],
+      activeMancheId: "mid-quiz",
     });
     const hostSnap = partySnapshotWithGame(party, packs, "host");
     expect(hostSnap.gameBoard).not.toBeNull();
@@ -97,6 +115,8 @@ describe("partySnapshotWithGame", () => {
       loadedPackId: "demo-video-v1",
       hasStartedRound: true,
       videoReplaySerial: 3,
+      mancheScript: [quizMancheOverPack("vid")],
+      activeMancheId: "mid-quiz",
     });
     const s = partySnapshotWithGame(party, packs, "player");
     expect(s.gameBoard?.kind).toBe("video");
@@ -105,12 +125,13 @@ describe("partySnapshotWithGame", () => {
     expect(s.gameBoard.videoUrl).toContain("example.com");
   });
 
-  test("omits gameBoard when no pack is loaded", () => {
+  test("omits gameBoard when no round manche is targeted", () => {
     const party = partyStub({
       state: "round_active",
       currentRoundIndex: 0,
       currentQuestionIndex: 0,
       loadedPackId: null,
+      activeMancheId: null,
     });
     expect(partySnapshotWithGame(party, packs, "host").gameBoard).toBeNull();
   });

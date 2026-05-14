@@ -4,14 +4,10 @@ import { nanoid } from "nanoid";
 
 import type { QuizPack } from "../games/pack.js";
 import { isVideoRound } from "../games/pack.js";
+import { parseAvatarKeyOrDefault, requireParsedAvatarKey } from "../avatars/catalog.js";
 import { randomJoinCode, randomSecretHex } from "./codes.js";
 import { evaluateJoin, normalizeTeamChoice, publicSnapshotForParty } from "./partyLogic.js";
-import type {
-  ChatEntry,
-  Party,
-  PartyPublicSnapshot,
-  Player,
-} from "./types.js";
+import type { ChatEntry, MancheCatalogItem, Party, PartyPublicSnapshot, Player } from "./types.js";
 
 export interface CreatePartyOpts {
   maxPlayers: number | null;
@@ -107,6 +103,8 @@ export class PartyStore {
       currentQuestionIndex: null,
       loadedPackId: null,
       videoReplaySerial: 0,
+      mancheScript: [],
+      activeMancheId: null,
     };
     this.parties.set(party.id, party);
     this.indexByJoinCode.set(joinCode, party.id);
@@ -118,6 +116,7 @@ export class PartyStore {
     joinCodeRaw: string,
     displayNameRaw: string,
     teamIdRaw: unknown,
+    avatarKeyRaw?: unknown,
   ): { party: Party; player: Player } {
     const party =
       this.getByJoinCode(joinCodeRaw.trim()) ??
@@ -125,12 +124,17 @@ export class PartyStore {
     if (!party) {
       throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
     }
-    const player = this.joinPlayer(party, displayNameRaw, teamIdRaw);
+    const player = this.joinPlayer(party, displayNameRaw, teamIdRaw, avatarKeyRaw);
     return { party, player };
   }
 
   /** * Adds a participant to an already-resolved party row (used by HTTP join by party id). */
-  joinPlayer(party: Party, displayNameRaw: string, teamIdRaw: unknown): Player {
+  joinPlayer(
+    party: Party,
+    displayNameRaw: string,
+    teamIdRaw: unknown,
+    avatarKeyRaw: unknown | undefined,
+  ): Player {
     const canonical = this.parties.get(party.id);
     if (!canonical) {
       throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
@@ -155,6 +159,7 @@ export class PartyStore {
     const player: Player = {
       id: randomUUID(),
       displayName,
+      avatarKey: parseAvatarKeyOrDefault(avatarKeyRaw),
       teamId: teamRes.teamId,
       score: 0,
       joinedAt: Date.now(),
@@ -186,6 +191,7 @@ export class PartyStore {
     body: {
       displayName?: string | undefined;
       teamId?: number | null | undefined;
+      avatarKey?: string | undefined;
     },
   ): Player {
     const player = party.players.get(playerId);
@@ -211,6 +217,15 @@ export class PartyStore {
       if (!teamChoice.ok)
         throw Object.assign(new Error(teamChoice.code), { code: teamChoice.code });
       player.teamId = teamChoice.teamId;
+    }
+
+    if (typeof body.avatarKey === "string") {
+      const nextKey = requireParsedAvatarKey(body.avatarKey);
+      if (nextKey !== player.avatarKey) {
+        if (!party.allowRename)
+          throw Object.assign(new Error("FORBIDDEN"), { code: "FORBIDDEN" });
+        player.avatarKey = nextKey;
+      }
     }
 
     this.touch(party);
@@ -295,13 +310,120 @@ export class PartyStore {
     this.broadcast(party);
   }
 
-  adminStartRound(party: Party): void {
-    const nextRound =
-      party.currentRoundIndex === null ? 0 : party.currentRoundIndex + 1;
+  private syncActiveQuizProgressIntoScriptItem(party: Party): void {
+    if (party.activeMancheId === null || party.state !== "round_active") return;
+    const item = party.mancheScript.find((m) => m.id === party.activeMancheId);
+    if (item === undefined || item.kind !== "pack_quiz") return;
+    if (party.currentRoundIndex !== null) item.savedRoundIndex = party.currentRoundIndex;
+    if (party.currentQuestionIndex !== null) item.savedQuestionIndex = party.currentQuestionIndex;
+  }
+
+  private hydrateRuntimeFromMancheItem(
+    party: Party,
+    item: MancheCatalogItem,
+    packs: Map<string, QuizPack>,
+  ): void {
+    party.videoReplaySerial += 1;
+    if (item.kind === "pack_quiz") {
+      const basename = (item.packBasename ?? "").replace(/\.json$/u, "").trim();
+      const pack = packs.get(basename);
+      if (!pack)
+        throw Object.assign(new Error("PACK_NOT_FOUND"), {
+          code: "PACK_NOT_FOUND",
+        });
+      party.loadedPackId = pack.id;
+      const ri = Math.min(
+        Math.max(item.savedRoundIndex, 0),
+        Math.max(pack.rounds.length - 1, 0),
+      );
+      party.currentRoundIndex = ri;
+      const round = pack.rounds[ri];
+      if (round === undefined)
+        throw Object.assign(new Error("BAD_ROUND"), { code: "BAD_ROUND" });
+      if (isVideoRound(round)) {
+        party.currentQuestionIndex = 0;
+      } else {
+        party.currentQuestionIndex = Math.min(
+          Math.max(item.savedQuestionIndex, 0),
+          Math.max(round.questions.length - 1, 0),
+        );
+      }
+      return;
+    }
+    party.loadedPackId = null;
+    party.currentRoundIndex = null;
+    party.currentQuestionIndex = null;
+  }
+
+  hostAppendManche(party: Party, draft: Omit<MancheCatalogItem, "id">): void {
+    const item: MancheCatalogItem = { ...draft, id: nanoid(12) };
+    party.mancheScript.push(item);
+    this.touch(party);
+    this.broadcast(party);
+  }
+
+  hostRemoveManche(party: Party, mancheId: string): void {
+    const idx = party.mancheScript.findIndex((m) => m.id === mancheId);
+    if (idx < 0)
+      throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
+    const removing = party.mancheScript[idx];
+    const activePlaying =
+      removing.id === party.activeMancheId && party.state === "round_active";
+    if (activePlaying) this.syncActiveQuizProgressIntoScriptItem(party);
+    party.mancheScript.splice(idx, 1);
+    if (removing.id === party.activeMancheId) {
+      party.activeMancheId = null;
+      party.loadedPackId = null;
+      party.currentRoundIndex = null;
+      party.currentQuestionIndex = null;
+      if (party.state === "round_active") party.state = "lobby";
+      party.buzzWindowOpen = false;
+      party.buzzOrder = [];
+    }
+    this.touch(party);
+    this.broadcast(party);
+  }
+
+  hostMoveManche(party: Party, mancheId: string, delta: number): void {
+    const i = party.mancheScript.findIndex((m) => m.id === mancheId);
+    if (i < 0)
+      throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
+    const j = i + delta;
+    if (j < 0 || j >= party.mancheScript.length)
+      throw Object.assign(new Error("BAD_MOVE"), { code: "BAD_MOVE" });
+    const arr = party.mancheScript;
+    const tmp = arr[i];
+    arr[i] = arr[j]!;
+    arr[j] = tmp!;
+    this.touch(party);
+    this.broadcast(party);
+  }
+
+  hostPlayMancheById(
+    party: Party,
+    mancheId: string,
+    packs: Map<string, QuizPack>,
+  ): void {
+    if (party.mancheScript.length === 0)
+      throw Object.assign(new Error("BAD_PHASE"), { code: "BAD_PHASE" });
+    const i = party.mancheScript.findIndex((m) => m.id === mancheId);
+    if (i < 0)
+      throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
+    this.syncActiveQuizProgressIntoScriptItem(party);
+
+    const before = [...party.mancheScript];
+    const [picked] = party.mancheScript.splice(i, 1);
+    if (picked === undefined)
+      throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
+    party.mancheScript.unshift(picked);
+    try {
+      party.activeMancheId = picked.id;
+      this.hydrateRuntimeFromMancheItem(party, picked, packs);
+    } catch (err) {
+      party.mancheScript = before;
+      throw err;
+    }
     party.state = "round_active";
-    party.currentRoundIndex = nextRound;
-    party.currentQuestionIndex = 0;
-    party.videoReplaySerial = 0;
     party.hasStartedRound = true;
     party.buzzWindowOpen = false;
     party.buzzOrder = [];
@@ -310,7 +432,8 @@ export class PartyStore {
   }
 
   adminPauseToLobby(party: Party): void {
-    party.state = "between_rounds";
+    this.syncActiveQuizProgressIntoScriptItem(party);
+    party.state = "lobby";
     party.buzzWindowOpen = false;
     party.buzzOrder = [];
     this.touch(party);
@@ -331,6 +454,7 @@ export class PartyStore {
       party.videoReplaySerial += 1;
       party.buzzWindowOpen = false;
       party.buzzOrder = [];
+      this.syncActiveQuizProgressIntoScriptItem(party);
       this.touch(party);
       this.broadcast(party);
       return;
@@ -344,6 +468,7 @@ export class PartyStore {
       party.currentQuestionIndex = nextQ;
       party.buzzWindowOpen = false;
       party.buzzOrder = [];
+      this.syncActiveQuizProgressIntoScriptItem(party);
       this.touch(party);
       this.broadcast(party);
       return;

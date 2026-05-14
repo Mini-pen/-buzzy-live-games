@@ -29,7 +29,40 @@ interface PartyGameBoardVideo {
   replaySerial: number;
 }
 
-type PartyGameBoardSurface = PartyGameBoardQuiz | PartyGameBoardVideo;
+/** * External page shown inside an iframe manche. */
+interface PartyGameBoardIframe {
+  kind: "iframe";
+  title: string;
+  url: string;
+  replaySerial: number;
+}
+
+/** * YouTube embed manche (`embedUrl` is already normalised server-side). */
+interface PartyGameBoardYoutube {
+  kind: "youtube";
+  title: string;
+  embedUrl: string;
+  replaySerial: number;
+}
+
+type PartyGameBoardSurface =
+  | PartyGameBoardQuiz
+  | PartyGameBoardVideo
+  | PartyGameBoardIframe
+  | PartyGameBoardYoutube;
+
+/** * Host-visible manche descriptor (mirror of `PartyPublicSnapshot.mancheScript`). */
+interface MancheCatalogItemView {
+  id: string;
+  kind: "pack_quiz" | "iframe" | "youtube" | "direct_video";
+  title: string;
+  packBasename: string | null;
+  iframeUrl: string | null;
+  youtubeEmbedUrl: string | null;
+  directVideoUrl: string | null;
+  savedRoundIndex: number;
+  savedQuestionIndex: number;
+}
 
 interface PartySnapshot {
   id: string;
@@ -42,12 +75,55 @@ interface PartySnapshot {
   maxTeams: number | null;
   closedAfterStart: boolean;
   hasStartedRound: boolean;
-  players: Array<{ id: string; displayName: string; teamId: number | null; score: number }>;
+  players: Array<{
+    id: string;
+    displayName: string;
+    avatarUrl: string;
+    teamId: number | null;
+    score: number;
+  }>;
   teamScores: Record<string, number>;
   chatTail: Array<{ id: string; displayName: string; text: string; at: number }>;
   currentRoundIndex?: number | null;
   currentQuestionIndex?: number | null;
   gameBoard?: PartyGameBoardSurface | null;
+  mancheScript: MancheCatalogItemView[];
+  activeMancheId: string | null;
+}
+
+/** * Compact label for animateur lists. */
+function mancheKindShort(kind: MancheCatalogItemView["kind"]): string {
+  switch (kind) {
+    case "pack_quiz":
+      return "Quiz";
+    case "iframe":
+      return "Page";
+    case "youtube":
+      return "YouTube";
+    case "direct_video":
+      return "Vidéo";
+    default:
+      return kind;
+  }
+}
+
+/** * Decorative round mascot image — surrounding context supplies the audible name. */
+function AvatarFigure(props: { src: string; sizePx: number }): JSX.Element {
+  return (
+    <img
+      src={props.src}
+      alt=""
+      width={props.sizePx}
+      height={props.sizePx}
+      decoding="async"
+      style={{
+        flexShrink: 0,
+        objectFit: "cover",
+        borderRadius: "50%",
+        border: "1px solid #ccc",
+      }}
+    />
+  );
 }
 
 function playerSessionKey(pid: string): string {
@@ -353,10 +429,10 @@ function Home(): JSX.Element {
   }, []);
 
   return (
-    <Shell title="PartyGames">
+    <Shell title="Buzzy · live quiz">
       <p>Quiz temps réel : lobby commun, buzzer et scores synchronisés.</p>
       {playerResume !== null ? (
-        <section className="bz-card" style={{ marginBottom: 12 }} >
+        <section className="bz-card" style={{ marginBottom: 18 }}>
           <h2 style={{ fontSize: 16, marginTop: 0 }}>Reprendre (joueur)</h2>
           <p style={{ marginBottom: 8 }}>
             Une session joueur est enregistrée dans cet onglet (équivalent d’un cookie de session pour
@@ -369,14 +445,14 @@ function Home(): JSX.Element {
             {playerResume.joinCode.length >= 4 ? (
               <>
                 {" "}
-                · code className="bz-code"
+                · code <code className="bz-code">{playerResume.joinCode}</code>
               </>
             ) : null}
           </p>
         </section>
       ) : null}
       {adminResume !== null ? (
-        <section className="bz-card" style={{ marginBottom: 12 }} >
+        <section className="bz-card" style={{ marginBottom: 18 }}>
           <h2 style={{ fontSize: 16, marginTop: 0 }}>Reprendre (animateur)</h2>
           <p style={{ marginBottom: 8 }}>
             Le jeton d’animateur pour cette partie est encore présent dans la session du navigateur.
@@ -388,7 +464,7 @@ function Home(): JSX.Element {
             {adminResume.joinCode.length >= 4 ? (
               <>
                 {" "}
-                · code joueurs <strong>{adminResume.joinCode}</strong>
+                · code joueurs <code className="bz-code">{adminResume.joinCode}</code>
               </>
             ) : null}
           </p>
@@ -412,8 +488,21 @@ function Join(): JSX.Element {
   const [snap, setSnap] = useState<PartySnapshot | null>(null);
   const [name, setName] = useState("");
   const [teamId, setTeamId] = useState<number>(1);
+  /** * Slug echoed to `POST /join` — initialised once `/api/avatars` loads. */
+  const [avatarKeyChosen, setAvatarKeyChosen] = useState("");
+  const [avatarsLib, setAvatarsLib] = useState<{
+    defaultKey: string;
+    avatars: Array<{ key: string; label: string; url: string }>;
+  } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    void fetchJson<{
+      defaultKey: string;
+      avatars: Array<{ key: string; label: string; url: string }>;
+    }>(`/api/avatars`).then(setAvatarsLib);
+  }, []);
 
   useEffect(() => {
     const c = params.get("code") ?? "";
@@ -456,6 +545,12 @@ function Join(): JSX.Element {
     void sync();
   }, [code, partyId]);
 
+  useEffect(() => {
+    if (avatarsLib === null || avatarKeyChosen !== "") return;
+    const first = avatarsLib.avatars[0]?.key ?? avatarsLib.defaultKey;
+    setAvatarKeyChosen(avatarsLib.defaultKey || first);
+  }, [avatarsLib, avatarKeyChosen]);
+
   const pidNormField = canonicalPartyIdFromRoute(partyId);
   const joinPartyIdResolved: string =
     pidNormField !== "" ? pidNormField : snap !== null ? canonicalPartyIdFromRoute(snap.id) : "";
@@ -473,7 +568,13 @@ function Join(): JSX.Element {
     setLoading(true);
     setErr(null);
     try {
-      const body: Record<string, unknown> = { displayName: name.trim() };
+      const key =
+        avatarKeyChosen !== ""
+          ? avatarKeyChosen
+          : avatarsLib?.defaultKey ??
+            avatarsLib?.avatars[0]?.key ??
+            "fox";
+      const body: Record<string, unknown> = { displayName: name.trim(), avatarKey: key };
       if (snap.maxTeams != null && snap.maxTeams >= 2) body.teamId = teamId;
       const res = await fetchJson<{ playerToken: string }>(
         `/api/parties/${encodeURIComponent(pidCanon)}/join`,
@@ -525,6 +626,62 @@ function Join(): JSX.Element {
             onChange={(e) => setName(e.target.value)}
           />
         </label>
+        <section aria-labelledby="join-avatars-heading">
+          <h3 id="join-avatars-heading" style={{ fontSize: 16, margin: "14px 0 8px" }}>
+            Avatar
+          </h3>
+          {avatarsLib === null ? (
+            <p style={{ margin: 0, opacity: 0.75 }}>Chargement des images…</p>
+          ) : (
+            <>
+              <p style={{ margin: "0 0 10px", fontSize: 14, opacity: 0.85 }}>
+                Choisissez une image affichée à côté de votre pseudo.
+              </p>
+              <div
+                role="radiogroup"
+                aria-label="Bibliothèque d’avatars"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))",
+                  gap: 10,
+                  maxHeight: 320,
+                  overflowY: "auto",
+                  padding: 4,
+                }}
+              >
+                {avatarsLib.avatars.map((a) => (
+                  <button
+                    key={a.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={avatarKeyChosen === a.key}
+                    aria-label={a.label}
+                    onClick={() => setAvatarKeyChosen(a.key)}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: 10,
+                      borderRadius: 10,
+                      border:
+                        avatarKeyChosen === a.key ? "3px solid #2874a6" : "1px solid #ccc",
+                      background: avatarKeyChosen === a.key ? "#f0f7ff" : "#fafafa",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      lineHeight: 1.25,
+                      textAlign: "center",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <AvatarFigure src={a.url} sizePx={56} />
+                    <span>{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
         {needsTeam ? (
           <label>
             Équipe (1–{snap.maxTeams})
@@ -540,7 +697,7 @@ function Join(): JSX.Element {
           </label>
         ) : null}
         {err ? <p style={{ color: "crimson" }}>{err}</p> : null}
-        <button type="submit" disabled={snap === null || loading}>
+        <button type="submit" disabled={snap === null || loading || avatarKeyChosen === ""}>
           Rejoindre le lobby / la partie
         </button>
       </form>
@@ -554,11 +711,22 @@ function PlayersPreview(props: { snap: PartySnapshot }): JSX.Element {
   return (
     <section style={{ marginTop: 20 }}>
       <h2>Déjà inscrits</h2>
-      <ul>
+      <ul style={{ paddingLeft: 0, listStyle: "none" }}>
         {props.snap.players.map((p) => (
-          <li key={p.id}>
-            {p.displayName} · {p.score} pts · équipe{" "}
-            {p.teamId === null ? "—" : p.teamId}
+          <li
+            key={p.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 10,
+              padding: "6px 0",
+            }}
+          >
+            <AvatarFigure src={p.avatarUrl} sizePx={40} />
+            <span>
+              {p.displayName} · {p.score} pts · équipe {p.teamId === null ? "—" : p.teamId}
+            </span>
           </li>
         ))}
       </ul>
@@ -573,6 +741,72 @@ function GameBoardPanel(props: {
   revealCorrect: boolean;
 }): JSX.Element | null {
   const { board, partyState, revealCorrect } = props;
+  if (board !== null && board.kind === "iframe") {
+    return (
+      <section
+        style={{
+          marginTop: 14,
+          padding: 14,
+          border: "1px solid #ccc",
+          borderRadius: 8,
+          background: "#fafafa",
+        }}
+      >
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Zone de jeu · page web</h2>
+        <p style={{ margin: "0 0 10px", fontSize: 13, opacity: 0.85 }}>{board.title}</p>
+        <iframe
+          key={board.replaySerial}
+          title={board.title}
+          src={board.url}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+          style={{
+            width: "100%",
+            minHeight: 420,
+            border: "1px solid #ddd",
+            borderRadius: 6,
+            background: "#fff",
+          }}
+        />
+      </section>
+    );
+  }
+
+  if (board !== null && board.kind === "youtube") {
+    return (
+      <section
+        style={{
+          marginTop: 14,
+          padding: 14,
+          border: "1px solid #ccc",
+          borderRadius: 8,
+          background: "#fafafa",
+        }}
+      >
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Zone de jeu · YouTube</h2>
+        <p style={{ margin: "0 0 10px", fontSize: 13, opacity: 0.85 }}>{board.title}</p>
+        <div style={{ position: "relative", width: "100%", paddingBottom: "56.25%", height: 0 }}>
+          <iframe
+            key={board.replaySerial}
+            title={board.title}
+            src={board.embedUrl}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              border: "none",
+              borderRadius: 6,
+              background: "#111",
+            }}
+          />
+        </div>
+      </section>
+    );
+  }
+
   if (board !== null && board.kind === "video") {
     return (
       <section
@@ -649,8 +883,8 @@ function GameBoardPanel(props: {
       <section style={{ marginTop: 14, padding: 12, border: "1px dashed #bbb", borderRadius: 8 }}>
         <h2 style={{ marginTop: 0, fontSize: 16 }}>Zone de jeu</h2>
         <p style={{ margin: 0, opacity: 0.85 }}>
-          Aucun énoncé disponible : chargez un pack quiz côté animateur (bouton « Charger ») avant de
-          lancer la manche, ou la manche dépasse le contenu du pack.
+          Aucun contenu affichable pour l’instant (manche inactive ou configuration incomplète côté
+          animateur).
         </p>
       </section>
     );
@@ -883,21 +1117,21 @@ function Play(): JSX.Element {
 
   return (
     <Shell title={`Lobby · ${snap.joinCode}`}>
-      <p>
-        Pseudo : <strong>{rowMe?.displayName ?? "—"}</strong> · Points :{" "}
-        <strong>{rowMe?.score ?? 0}</strong>
-        {snap.maxTeams != null && snap.maxTeams >= 2 ? (
-          <>
-            {" "}
-            · Équipe{" "}
-            <strong>{rowMe?.teamId === null ? "—" : rowMe.teamId}</strong>
-          </>
-        ) : null}
-      </p>
-      <p>État&nbsp;: <span className={`bz-pill ${snap.state === "round_active" ? "bz-live" : ""}`}>
-		{snap.state === "round_active" && <span className="bz-dot" />}
-		{snap.state}
-		</span></p>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        {rowMe ? <AvatarFigure src={rowMe.avatarUrl} sizePx={48} /> : null}
+        <p style={{ margin: 0 }}>
+          Pseudo : <strong>{rowMe?.displayName ?? "—"}</strong> · Points :{" "}
+          <strong>{rowMe?.score ?? 0}</strong>
+          {snap.maxTeams != null && snap.maxTeams >= 2 ? (
+            <>
+              {" "}
+              · Équipe{" "}
+              <strong>{rowMe?.teamId === null ? "—" : rowMe.teamId}</strong>
+            </>
+          ) : null}
+        </p>
+      </div>
+      <p>État : {snap.state}</p>
       {err ? <p style={{ color: "crimson" }}>{err}</p> : null}
 
       <GameBoardPanel
@@ -912,8 +1146,13 @@ function Play(): JSX.Element {
           <p>L’animateur diffuse le contenu depuis cette session.</p>
         ) : snap.gameBoard.kind === "video" ? (
           <p style={{ opacity: 0.8 }}>
-            Regardez la vidéo ; l’animateur peut la relancer avec « Question suivante » depuis son tableau.
+            Regardez la vidéo ; l’animateur peut la relancer ou avancer depuis son tableau (« Question suivante /
+            suivant » lorsque disponible).
           </p>
+        ) : snap.gameBoard.kind === "iframe" ? (
+          <p style={{ opacity: 0.8 }}>Consultez la page affichée ; le buzzer n’est généralement pas utilisé.</p>
+        ) : snap.gameBoard.kind === "youtube" ? (
+          <p style={{ opacity: 0.8 }}>Consultez la vidéo ; le buzzer n’est généralement pas utilisé.</p>
         ) : (
           <p style={{ opacity: 0.8 }}>Répondez avec le buzzer lorsque celui‑ci est ouvert.</p>
         )}
@@ -929,8 +1168,14 @@ function Play(): JSX.Element {
             {snap.buzzOrder.map((idBuzz, idx) => {
               const pl = snap.players.find((x) => x.id === idBuzz);
               return (
-                <li key={`${idBuzz}-${idx}`}>
-                  {idx + 1}. {pl?.displayName ?? idBuzz}
+                <li
+                  key={`${idBuzz}-${idx}`}
+                  style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}
+                >
+                  {pl ? <AvatarFigure src={pl.avatarUrl} sizePx={26} /> : null}
+                  <span>
+                    {idx + 1}. {pl?.displayName ?? idBuzz}
+                  </span>
                 </li>
               );
             })}
@@ -973,7 +1218,7 @@ function Play(): JSX.Element {
           type="button"
           onClick={() => nav(`/join?code=${encodeURIComponent(snap.joinCode)}`)}
         >
-          Quitter pour changer pseudo / équipe
+          Quitter pour changer pseudo, équipe ou avatar
         </button>
       </p>
     </Shell>
@@ -989,19 +1234,34 @@ function Admin(): JSX.Element {
   const [packsList, setPacksList] = useState<
     Array<{ basename: string; id: string; title: string; roundCount?: number }>
   >([]);
-  const [basename, setBasename] = useState("example-quiz-pack");
   const [err, setErr] = useState<string | null>(null);
   const [hostChat, setHostChat] = useState("");
-  const [deltaById, setDeltaById] = useState<Record<string, string>>({});
   const [adminBootstrap, setAdminBootstrap] = useState<"loading" | "ready" | "unavailable">(
     "loading",
   );
+
+  /** * Popup: append a scripted manche (pack, iframe site, or YouTube). */
+  const [addMancheOpen, setAddMancheOpen] = useState(false);
+  /** * `"pack"` = quiz JSON pack ; `"site"` = iframe or pasted YouTube watch URL. */
+  const [addMancheFlavor, setAddMancheFlavor] = useState<"pack" | "site">("pack");
+  const [modalPackBasename, setModalPackBasename] = useState("");
+  const [modalMancheTitle, setModalMancheTitle] = useState("");
+  const [modalSiteKind, setModalSiteKind] = useState<"iframe" | "youtube">("iframe");
+  const [modalSiteUrl, setModalSiteUrl] = useState("");
 
   useEffect(() => {
     void fetchJson<{
       packs: Array<{ basename: string; id: string; title: string; roundCount: number }>;
     }>(`/api/packs`).then((r) => setPacksList(r.packs));
   }, []);
+
+  useEffect(() => {
+    if (packsList.length === 0) return;
+    setModalPackBasename((prev) => {
+      if (prev !== "" && packsList.some((p) => p.basename === prev)) return prev;
+      return packsList[0]!.basename;
+    });
+  }, [packsList]);
 
   useEffect(() => {
     setToken(peekAdminBearer(pid));
@@ -1101,15 +1361,101 @@ function Admin(): JSX.Element {
 
   const hostBasePath = `/api/parties/${encodeURIComponent(pid)}`;
 
-  const onHostRoundStart = useCallback(async (): Promise<void> => {
+  const onHostMancheSubmitAdd = useCallback(async (): Promise<void> => {
     setErr(null);
     try {
-      const p = await callHostSnapshot(`${hostBasePath}/host/round/start`, "POST", {});
-      setSnap(p);
+      if (addMancheFlavor === "pack" && packsList.length === 0) {
+        throw new Error("validation:Aucun pack quiz chargé sur le serveur pour l’instant.");
+      }
+      if (addMancheFlavor === "pack") {
+        const pkMeta = packsList.find((x) => x.basename === modalPackBasename);
+        const titleDraft = modalMancheTitle.trim();
+        const title =
+          titleDraft.length > 0
+            ? titleDraft
+            : (pkMeta?.title ?? "").trim().length > 0
+              ? (pkMeta?.title ?? "").trim()
+              : modalPackBasename;
+        const p = await callHostSnapshot(`${hostBasePath}/host/manche/add`, "POST", {
+          kind: "pack_quiz",
+          title,
+          packBasename: modalPackBasename,
+        });
+        setSnap(p);
+      } else {
+        const title = modalMancheTitle.trim();
+        if (title === "") {
+          throw new Error("validation:Titre obligatoire.");
+        }
+        const urlRaw = modalSiteUrl.trim();
+        if (urlRaw === "") {
+          throw new Error("validation:URL obligatoire.");
+        }
+        const body =
+          modalSiteKind === "iframe"
+            ? { kind: "iframe", title, url: urlRaw }
+            : { kind: "youtube", title, url: urlRaw };
+        const p = await callHostSnapshot(`${hostBasePath}/host/manche/add`, "POST", body);
+        setSnap(p);
+      }
+      setAddMancheOpen(false);
+      setModalMancheTitle("");
+      setModalSiteUrl("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     }
-  }, [callHostSnapshot, hostBasePath]);
+  }, [
+    addMancheFlavor,
+    callHostSnapshot,
+    hostBasePath,
+    modalMancheTitle,
+    modalPackBasename,
+    modalSiteKind,
+    modalSiteUrl,
+    packsList,
+  ]);
+
+  const onHostManchePlay = useCallback(
+    async (id: string): Promise<void> => {
+      setErr(null);
+      try {
+        const p = await callHostSnapshot(`${hostBasePath}/host/manche/play`, "POST", { id });
+        setSnap(p);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [callHostSnapshot, hostBasePath],
+  );
+
+  const onHostMancheRemove = useCallback(
+    async (id: string): Promise<void> => {
+      setErr(null);
+      try {
+        const p = await callHostSnapshot(`${hostBasePath}/host/manche/remove`, "POST", { id });
+        setSnap(p);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [callHostSnapshot, hostBasePath],
+  );
+
+  const onHostMancheMove = useCallback(
+    async (id: string, direction: "up" | "down"): Promise<void> => {
+      setErr(null);
+      try {
+        const p = await callHostSnapshot(`${hostBasePath}/host/manche/move`, "POST", {
+          id,
+          direction,
+        });
+        setSnap(p);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [callHostSnapshot, hostBasePath],
+  );
 
   const onHostRoundPause = useCallback(async (): Promise<void> => {
     setErr(null);
@@ -1144,26 +1490,6 @@ function Admin(): JSX.Element {
     }
   }, [callHostSnapshot, hostBasePath]);
 
-  const applyPackMutation = useCallback(async (): Promise<void> => {
-    setErr(null);
-    try {
-      const j = await fetchJson<{ snapshot: PartySnapshot }>(
-        `${hostBasePath}/host/pack`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${bearer}`,
-          },
-          body: JSON.stringify({ packBasename: basename }),
-        },
-      );
-      setSnap(j.snapshot);
-    } catch (e7) {
-      setErr(String(e7));
-    }
-  }, [hostBasePath, bearer, basename]);
-
   const onHostChatSend = useCallback(async (textOverride?: string): Promise<void> => {
     const payload = (typeof textOverride === "string" ? textOverride : hostChat).trim();
     if (payload === "") return;
@@ -1179,11 +1505,9 @@ function Admin(): JSX.Element {
     }
   }, [callHostSnapshot, hostBasePath, hostChat]);
 
-  const onDeltaScoreApply = useCallback(
-    async (playerDbId: string): Promise<void> => {
-      const raw = deltaById[playerDbId] ?? "1";
-      const delta = Number.parseInt(raw, 10);
-      if (!Number.isInteger(delta)) return;
+  const onPlayerScoreDelta = useCallback(
+    async (playerDbId: string, delta: number): Promise<void> => {
+      if (delta !== 1 && delta !== -1) return;
       setErr(null);
       try {
         const u = await fetchJson<PartySnapshot>(
@@ -1202,7 +1526,7 @@ function Admin(): JSX.Element {
         setErr(String(e9));
       }
     },
-    [hostBasePath, bearer, deltaById],
+    [hostBasePath, bearer],
   );
 
   if (!pid) return <Navigate to="/create" replace />;
@@ -1249,6 +1573,13 @@ function Admin(): JSX.Element {
 
   const joinUrl = `${window.location.origin}/join?code=${encodeURIComponent(snap.joinCode)}`;
 
+  const activeMancheEntry =
+    snap.activeMancheId === null
+      ? undefined
+      : snap.mancheScript.find((m) => m.id === snap.activeMancheId);
+  const showQuizCueButtons =
+    snap.state === "round_active" && activeMancheEntry?.kind === "pack_quiz";
+
   return (
     <Shell title={`Animateur · ${snap.joinCode}`}>
       <p>
@@ -1275,37 +1606,289 @@ function Admin(): JSX.Element {
         revealCorrect
       />
 
-      <section style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
-        <button type="button" onClick={() => void onHostRoundStart()}>
-          Lancer la manche suivante
-        </button>
-        <button type="button" onClick={() => void onHostRoundPause()}>
-          Mettre en pause (lobby)
-        </button>
-        <button type="button" onClick={() => void onHostBuzzWindow(true)}>
-          Ouvrir buzzer
-        </button>
-        <button type="button" onClick={() => void onHostBuzzWindow(false)}>
-          Fermer buzzer &amp; purge file
-        </button>
-        <button type="button" onClick={() => void onHostCueNext()}>
-          Question suivante / rejouer la vidéo
-        </button>
+      <section style={{ marginTop: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <h2 style={{ margin: 0 }}>Liste des manches</h2>
+          <button
+            type="button"
+            title="Ajouter une manche"
+            aria-label="Ajouter une manche"
+            onClick={() => {
+              setErr(null);
+              setAddMancheOpen(true);
+              setModalMancheTitle("");
+              setModalSiteUrl("");
+            }}
+          >
+            +
+          </button>
+        </div>
+        <p style={{ margin: "8px 0 0", fontSize: 14, opacity: 0.85 }}>
+          Réordonnez avec les flèches ; ▶ met la manche en tête et la lance ; la progression d&apos;un pack quiz est
+          mémorisée pour la suite.
+        </p>
+        {snap.mancheScript.length === 0 ? (
+          <p style={{ marginTop: 10 }}>
+            Aucune manche pour l&apos;instant — utilisez « + » pour ajouter un pack, une page (HTTPS) ou YouTube.
+          </p>
+        ) : (
+          <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 0" }}>
+            {snap.mancheScript.map((mancheRow, mi) => {
+              const playing =
+                snap.activeMancheId === mancheRow.id && snap.state === "round_active";
+              return (
+                <li
+                  key={mancheRow.id}
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 12px",
+                    marginBottom: 10,
+                    borderRadius: 8,
+                    border: `1px solid ${playing ? "#6fa8dc" : "#ddd"}`,
+                    background: playing ? "#f5faff" : "#fafafa",
+                  }}
+                >
+                  <span style={{ flex: "1 1 200px", minWidth: 0 }}>
+                    <strong>{mancheRow.title}</strong>
+                    <span style={{ opacity: 0.75, marginLeft: 8 }}>
+                      ({mancheKindShort(mancheRow.kind)})
+                    </span>
+                    {playing ? (
+                      <span style={{ marginLeft: 8, color: "#2874a6", fontSize: 13 }}>● en cours</span>
+                    ) : null}
+                  </span>
+                  <button type="button" title="Jouer cette manche" onClick={() => void onHostManchePlay(mancheRow.id)}>
+                    ▶
+                  </button>
+                  <button
+                    type="button"
+                    disabled={mi === 0}
+                    title="Monter dans la liste"
+                    aria-label="Monter dans la liste"
+                    onClick={() => void onHostMancheMove(mancheRow.id, "up")}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    disabled={mi === snap.mancheScript.length - 1}
+                    title="Descendre dans la liste"
+                    aria-label="Descendre dans la liste"
+                    onClick={() => void onHostMancheMove(mancheRow.id, "down")}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    title="Supprimer cette manche"
+                    aria-label="Supprimer cette manche"
+                    onClick={() => void onHostMancheRemove(mancheRow.id)}
+                  >
+                    🗑
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
-      <section style={{ marginTop: 16 }}>
-        <h2>Pack quiz</h2>
-        <select value={basename} onChange={(e2) => setBasename(e2.target.value)}>
-          {packsList.map((pk) => (
-            <option key={pk.basename} value={pk.basename}>
-              {pk.title} ({pk.roundCount ?? 0} manches)
-            </option>
-          ))}
-        </select>
-        <button type="button" onClick={() => void applyPackMutation()}>
-          Charger
+      <section style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <button type="button" onClick={() => void onHostRoundPause()}>
+          Mettre en pause (retour joueurs au lobby)
         </button>
+        {snap.state === "round_active" ? (
+          <button
+            type="button"
+            aria-pressed={snap.buzzWindowOpen}
+            title={
+              snap.buzzWindowOpen
+                ? "Désactive le buzzer : les joueurs ne peuvent plus buzzer et la file d’ordre est vidée."
+                : "Réactive le buzzer pour cette manche ; la liste des buzz démarre vide."
+            }
+            onClick={() => void onHostBuzzWindow(!snap.buzzWindowOpen)}
+          >
+            Buzzer&nbsp;: {snap.buzzWindowOpen ? "ON" : "OFF"}
+            {snap.buzzWindowOpen ? " (ouvert)" : " (fermé · file purgee)"}
+          </button>
+        ) : null}
+        {showQuizCueButtons ? (
+          <button type="button" onClick={() => void onHostCueNext()}>
+            Question suivante / rejouer la vidéo du pack
+          </button>
+        ) : null}
       </section>
+
+      {addMancheOpen ? (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(0,0,0,0.42)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onMouseDown={(evt) => {
+            if (evt.target === evt.currentTarget) setAddMancheOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-manche-title"
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              padding: "22px 24px",
+              borderRadius: 12,
+              background: "#fff",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
+            }}
+            onMouseDown={(evt) => {
+              evt.stopPropagation();
+            }}
+          >
+            <h2 id="add-manche-title" style={{ marginTop: 0 }}>
+              Ajouter une manche à la liste
+            </h2>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <button
+                type="button"
+                aria-pressed={addMancheFlavor === "pack"}
+                onClick={() => setAddMancheFlavor("pack")}
+                style={{
+                  fontWeight: addMancheFlavor === "pack" ? 700 : 400,
+                  background: addMancheFlavor === "pack" ? "#e8f4fc" : "#f5f5f5",
+                  border: "1px solid #ccc",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                }}
+              >
+                Pack quiz
+              </button>
+              <button
+                type="button"
+                aria-pressed={addMancheFlavor === "site"}
+                onClick={() => setAddMancheFlavor("site")}
+                style={{
+                  fontWeight: addMancheFlavor === "site" ? 700 : 400,
+                  background: addMancheFlavor === "site" ? "#e8f4fc" : "#f5f5f5",
+                  border: "1px solid #ccc",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                }}
+              >
+                Site (iframe) ou YouTube
+              </button>
+            </div>
+
+            {addMancheFlavor === "pack" ? (
+              <>
+                <label style={{ display: "block", marginBottom: 10 }}>
+                  Pack à ajouter à la liste
+                  <select
+                    style={{ display: "block", width: "100%", marginTop: 6 }}
+                    value={
+                      modalPackBasename !== "" && packsList.some((p2) => p2.basename === modalPackBasename)
+                        ? modalPackBasename
+                        : packsList[0]?.basename ?? ""
+                    }
+                    onChange={(ev2) => setModalPackBasename(ev2.target.value)}
+                  >
+                    {packsList.map((pk) => (
+                      <option key={pk.basename} value={pk.basename}>
+                        {pk.title} ({pk.roundCount ?? 0} manches)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: "block", marginBottom: 8 }}>
+                  Titre dans la liste (optionnel ; par défaut le titre du pack)
+                  <input
+                    type="text"
+                    style={{ display: "block", width: "100%", marginTop: 6, boxSizing: "border-box" }}
+                    placeholder="Laisser vide pour reprendre le nom du JSON"
+                    value={modalMancheTitle}
+                    onChange={(ev2) => setModalMancheTitle(ev2.target.value)}
+                  />
+                </label>
+              </>
+            ) : (
+              <>
+                <label style={{ display: "block", marginBottom: 12 }}>
+                  Titre dans la liste
+                  <input
+                    type="text"
+                    style={{ display: "block", width: "100%", marginTop: 6, boxSizing: "border-box" }}
+                    placeholder="Ex. Présentation du sponsor"
+                    value={modalMancheTitle}
+                    onChange={(ev2) => setModalMancheTitle(ev2.target.value)}
+                  />
+                </label>
+                <fieldset style={{ border: "1px solid #ddd", borderRadius: 8, margin: "0 0 14px", padding: 12 }}>
+                  <legend>Type de lien</legend>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="modal-site-kind"
+                      checked={modalSiteKind === "iframe"}
+                      onChange={() => setModalSiteKind("iframe")}
+                    />
+                    Page web (HTTPS) dans un iframe
+                  </label>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", marginTop: 8 }}>
+                    <input
+                      type="radio"
+                      name="modal-site-kind"
+                      checked={modalSiteKind === "youtube"}
+                      onChange={() => setModalSiteKind("youtube")}
+                    />
+                    Vidéo YouTube (lien youtube.com ou youtu.be)
+                  </label>
+                </fieldset>
+                <label style={{ display: "block" }}>
+                  URL complète ({modalSiteKind === "iframe" ? "https://… uniquement pour l’iframe" : "coller depuis le navigateur"})
+                  <input
+                    type="url"
+                    autoComplete="url"
+                    style={{ display: "block", width: "100%", marginTop: 6, boxSizing: "border-box" }}
+                    placeholder={modalSiteKind === "iframe" ? "https://…" : "https://www.youtube.com/watch?v=…"}
+                    value={modalSiteUrl}
+                    onChange={(ev2) => setModalSiteUrl(ev2.target.value)}
+                  />
+                </label>
+              </>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 22 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddMancheOpen(false);
+                  setModalMancheTitle("");
+                  setModalSiteUrl("");
+                }}
+              >
+                Annuler
+              </button>
+              <button type="button" onClick={() => void onHostMancheSubmitAdd()}>
+                Ajouter cette manche
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <section style={{ marginTop: 18 }}>
         <h2>Buzz ordre courant</h2>
@@ -1313,8 +1896,12 @@ function Admin(): JSX.Element {
           {snap.buzzOrder.map((idBuzz2, ix) => {
             const pw = snap.players.find((zz) => zz.id === idBuzz2);
             return (
-              <li key={`${idBuzz2}-${ix}`}>
-                {pw?.displayName ?? idBuzz2}
+              <li
+                key={`${idBuzz2}-${ix}`}
+                style={{ display: "flex", alignItems: "center", gap: 8 }}
+              >
+                {pw ? <AvatarFigure src={pw.avatarUrl} sizePx={28} /> : null}
+                <span>{pw?.displayName ?? idBuzz2}</span>
               </li>
             );
           })}
@@ -1322,21 +1909,37 @@ function Admin(): JSX.Element {
       </section>
 
       <section style={{ marginTop: 18 }}>
-        <h2>Scores joueurs (+/− dans la case puis appliquer)</h2>
+        <h2>Scores joueurs</h2>
         <ul style={{ paddingLeft: 16 }}>
           {snap.players.map((pl2) => (
-            <li key={pl2.id} style={{ marginBottom: 6 }}>
-              {pl2.displayName} ({pl2.score}{" "}
-              pts)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-              <input
-                style={{ width: 60 }}
-                value={deltaById[pl2.id] ?? ""}
-                onChange={(ev) =>
-                  setDeltaById((m) => ({ ...m, [pl2.id]: ev.target.value }))
-                }
-              />
-              <button type="button" onClick={() => void onDeltaScoreApply(pl2.id)}>
-                Appliquer delta
+            <li
+              key={pl2.id}
+              style={{
+                marginBottom: 8,
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <AvatarFigure src={pl2.avatarUrl} sizePx={36} />
+              <span>
+                <strong>{pl2.displayName}</strong> ({pl2.score}{" "}
+                {pl2.score === 1 ? "pt" : "pts"})
+              </span>
+              <button
+                type="button"
+                aria-label={`Ajouter un point à ${pl2.displayName}`}
+                onClick={() => void onPlayerScoreDelta(pl2.id, 1)}
+              >
+                +1
+              </button>
+              <button
+                type="button"
+                aria-label={`Retirer un point à ${pl2.displayName}`}
+                onClick={() => void onPlayerScoreDelta(pl2.id, -1)}
+              >
+                −1
               </button>
             </li>
           ))}

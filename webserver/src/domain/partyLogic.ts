@@ -1,4 +1,5 @@
-import type { ChatEntry, PartyPublicSnapshot, Player } from "./types.js";
+import { avatarPublicRelativePath } from "../avatars/catalog.js";
+import type { ChatEntry, MancheCatalogItem, PartyPublicSnapshot, Player } from "./types.js";
 
 interface PartyMeta {
   closedAfterStart: boolean;
@@ -79,10 +80,13 @@ export function publicSnapshotForParty(part: {
   chat: ChatEntry[];
   currentRoundIndex: number | null;
   currentQuestionIndex: number | null;
+  mancheScript: MancheCatalogItem[];
+  activeMancheId: string | null;
 }): PartyPublicSnapshot {
   const playersArr = [...part.players.values()].map((p) => ({
     id: p.id,
     displayName: p.displayName,
+    avatarUrl: avatarPublicRelativePath(p.avatarKey),
     teamId: p.teamId,
     score: p.score,
   }));
@@ -112,5 +116,7 @@ export function publicSnapshotForParty(part: {
     currentRoundIndex: part.currentRoundIndex,
     currentQuestionIndex: part.currentQuestionIndex,
     gameBoard: null,
+    mancheScript: [...part.mancheScript],
+    activeMancheId: part.activeMancheId,
   };
 }
