@@ -764,93 +764,22 @@ function GameBoardPanel(props: {
   revealCorrect: boolean;
 }): JSX.Element | null {
   const { board, partyState, revealCorrect } = props;
-  if (board !== null && board.kind === "iframe") {
-    return (
-      <section
-        style={{
-          marginTop: 14,
-          padding: 14,
-          border: "1px solid #ccc",
-          borderRadius: 8,
-          background: "#fafafa",
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Zone de jeu · page web</h2>
-        <p style={{ margin: "0 0 10px", fontSize: 13, opacity: 0.85 }}>{board.title}</p>
-        <iframe
-          key={board.replaySerial}
-          title={board.title}
-          src={board.url}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-          style={{
-            width: "100%",
-            minHeight: 420,
-            border: "1px solid #ddd",
-            borderRadius: 6,
-            background: "#fff",
-          }}
-        />
-      </section>
-    );
-  }
-
-  if (board !== null && board.kind === "youtube") {
-    return (
-      <section
-        style={{
-          marginTop: 14,
-          padding: 14,
-          border: "1px solid #ccc",
-          borderRadius: 8,
-          background: "#fafafa",
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Zone de jeu · YouTube</h2>
-        <p style={{ margin: "0 0 10px", fontSize: 13, opacity: 0.85 }}>{board.title}</p>
-        <div style={{ position: "relative", width: "100%", paddingBottom: "56.25%", height: 0 }}>
-          <iframe
-            key={board.replaySerial}
-            title={board.title}
-            src={board.embedUrl}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              border: "none",
-              borderRadius: 6,
-              background: "#111",
-            }}
-          />
-        </div>
-      </section>
-    );
-  }
 
   if (board !== null && board.kind === "video") {
     return (
-      <section
-        style={{
-          marginTop: 14,
-          padding: 14,
-          border: "1px solid #ccc",
-          borderRadius: 8,
-          background: "#fafafa",
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Zone de jeu · vidéo</h2>
-        <p style={{ margin: "0 0 10px", fontSize: 13, opacity: 0.85 }}>
-          {board.packTitle} · Manche {board.roundNumberHuman} — {board.roundTitle}
-        </p>
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-info"><span className="bz-dot" />vidéo</span>
+          <span>
+            {board.packTitle} · Manche {board.roundNumberHuman} — {board.roundTitle}
+          </span>
+        </div>
         <video
           key={board.replaySerial}
           controls
           playsInline
           preload="metadata"
-          style={{ width: "100%", maxHeight: 420, borderRadius: 6, background: "#111" }}
+          className="bz-board-video"
           src={board.videoUrl}
         >
           Lecture vidéo non supportée par ce navigateur.
@@ -858,6 +787,7 @@ function GameBoardPanel(props: {
       </section>
     );
   }
+
   if (board !== null && board.kind === "quiz") {
     const ci = board.correctChoiceIndex;
     const correctText =
@@ -868,46 +798,57 @@ function GameBoardPanel(props: {
         ? board.choices[ci]
         : null;
     return (
-      <section
-        style={{
-          marginTop: 14,
-          padding: 14,
-          border: "1px solid #ccc",
-          borderRadius: 8,
-          background: "#fafafa",
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Zone de jeu</h2>
-        <p style={{ margin: "0 0 8px", fontSize: 13, opacity: 0.85 }}>
-          {board.packTitle} · Manche {board.roundNumberHuman} — {board.roundTitle} · Question{" "}
-          {board.questionIndexInRound + 1} · {board.points} {board.points === 1 ? "pt" : "pts"}
-        </p>
-        <p style={{ fontSize: 18, fontWeight: 600, margin: "12px 0" }}>{board.prompt}</p>
-        <ol style={{ margin: 0, paddingLeft: 22 }}>
-          {board.choices.map((c, i) => (
-            <li key={`${board.roundIndex}-${board.questionIndexInRound}-${i}`} style={{ marginBottom: 6 }}>
-              <strong>{String.fromCharCode(65 + i)}.</strong> {c}
-              {revealCorrect && typeof ci === "number" && ci === i ? (
-                <span style={{ marginLeft: 8, color: "seagreen" }}>(attendue)</span>
-              ) : null}
-            </li>
-          ))}
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-accent">
+            +{board.points} {board.points === 1 ? "pt" : "pts"}
+          </span>
+          <span>
+            {board.packTitle} · Manche {board.roundNumberHuman} — {board.roundTitle}
+            {" · Question "}
+            {board.questionIndexInRound + 1}
+          </span>
+        </div>
+        <h2 className="bz-board-prompt">{board.prompt}</h2>
+        <ol className="bz-board-choices">
+          {board.choices.map((c, i) => {
+            const isCorrect =
+              revealCorrect && typeof ci === "number" && ci === i;
+            return (
+              <li
+                key={`${board.roundIndex}-${board.questionIndexInRound}-${i}`}
+                className={`bz-choice ${isCorrect ? "bz-choice--correct" : ""}`}
+              >
+                <span className="bz-choice-letter">
+                  {String.fromCharCode(65 + i)}
+                </span>
+                <span className="bz-choice-text">{c}</span>
+                {isCorrect ? (
+                  <span className="bz-pill bz-good">
+                    <span className="bz-dot" />
+                    bonne réponse
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
         </ol>
         {correctText !== null ? (
-          <p style={{ marginTop: 12, fontSize: 14 }}>
+          <p className="bz-board-answer">
             Réponse attendue : <strong>{correctText}</strong>
           </p>
         ) : null}
       </section>
     );
   }
+
   if (partyState === "round_active") {
     return (
-      <section style={{ marginTop: 14, padding: 12, border: "1px dashed #bbb", borderRadius: 8 }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Zone de jeu</h2>
-        <p style={{ margin: 0, opacity: 0.85 }}>
-          Aucun contenu affichable pour l’instant (manche inactive ou configuration incomplète côté
-          animateur).
+      <section className="bz-board bz-board--empty">
+        <h2>Zone de jeu</h2>
+        <p>
+          Aucun énoncé disponible : l'animateur doit charger un pack quiz
+          côté tableau avant de lancer la manche.
         </p>
       </section>
     );
@@ -1139,22 +1080,42 @@ function Play(): JSX.Element {
   const canBuzz = snap.state === "round_active" && snap.buzzWindowOpen;
 
   return (
-    <Shell title={`Lobby · ${snap.joinCode}`}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        {rowMe ? <AvatarFigure src={rowMe.avatarUrl} sizePx={48} /> : null}
-        <p style={{ margin: 0 }}>
-          Pseudo : <strong>{rowMe?.displayName ?? "—"}</strong> · Points :{" "}
-          <strong>{rowMe?.score ?? 0}</strong>
-          {snap.maxTeams != null && snap.maxTeams >= 2 ? (
-            <>
-              {" "}
-              · Équipe{" "}
-              <strong>{rowMe?.teamId === null ? "—" : rowMe.teamId}</strong>
-            </>
-          ) : null}
-        </p>
-      </div>
-      <p>État : {snap.state}</p>
+    <Shell title={`Partie · ${snap.joinCode}`}>
+      <section className="bz-identity-strip">
+        <span className="bz-avatar">
+          {(rowMe?.displayName ?? "?").slice(0, 2).toUpperCase()}
+        </span>
+        <div className="bz-identity-info">
+          <div className="bz-identity-name">{rowMe?.displayName ?? "—"}</div>
+          <div className="bz-identity-meta">
+            {snap.maxTeams != null && snap.maxTeams >= 2 ? (
+              <span>
+                Équipe&nbsp;
+                <strong>
+                  {rowMe?.teamId === null || rowMe?.teamId === undefined
+                    ? "—"
+                    : rowMe.teamId}
+                </strong>
+              </span>
+            ) : null}
+            <span
+              className={`bz-pill ${
+                snap.state === "round_active" ? "bz-live" : ""
+              }`}
+            >
+              {snap.state === "round_active" ? (
+                <span className="bz-dot" />
+              ) : null}
+              {snap.state}
+            </span>
+          </div>
+        </div>
+        <div className="bz-identity-score">
+          <span className="bz-score-label">points</span>
+          <span className="bz-score-value">{rowMe?.score ?? 0}</span>
+        </div>
+      </section>
+
       {err ? <p style={{ color: "crimson" }}>{err}</p> : null}
 
       <GameBoardPanel
@@ -1163,85 +1124,100 @@ function Play(): JSX.Element {
         revealCorrect={false}
       />
 
-      <section style={{ marginTop: 14 }}>
-        <h2>Manche / lobby</h2>
-        {(snap.gameBoard ?? null) === null ? (
-          <p>L’animateur diffuse le contenu depuis cette session.</p>
-        ) : snap.gameBoard.kind === "video" ? (
-          <p style={{ opacity: 0.8 }}>
-            Regardez la vidéo ; l’animateur peut la relancer ou avancer depuis son tableau (« Question suivante /
-            suivant » lorsque disponible).
-          </p>
-        ) : snap.gameBoard.kind === "iframe" ? (
-          <p style={{ opacity: 0.8 }}>Consultez la page affichée ; le buzzer n’est généralement pas utilisé.</p>
-        ) : snap.gameBoard.kind === "youtube" ? (
-          <p style={{ opacity: 0.8 }}>Consultez la vidéo ; le buzzer n’est généralement pas utilisé.</p>
-        ) : (
-          <p style={{ opacity: 0.8 }}>Répondez avec le buzzer lorsque celui‑ci est ouvert.</p>
-        )}
+      <section className="bz-buzz-hero">
         {canBuzz ? (
-          <button type="button" onClick={() => void buzz()}>
-            BUZZ !
+          <button
+            type="button"
+            onClick={() => void buzz()}
+            className="bz-buzz-btn bz-buzz-armed"
+            aria-label="Buzz"
+          >
+            BUZZ
           </button>
         ) : (
-          <p>Buzzer fermé pour l’instant.</p>
+          <div className="bz-buzz-closed">
+            <span className="bz-pill">buzzer fermé</span>
+            <p>
+              {snap.gameBoard !== null && snap.gameBoard.kind === "video"
+                ? "Regarde la vidéo — l'animateur peut la relancer pour tout le monde."
+                : snap.state === "lobby"
+                ? "En attente du démarrage de la manche par l'animateur."
+                : snap.state === "between_rounds"
+                ? "Pause entre les manches. Le buzzer rouvrira à la prochaine manche."
+                : snap.state === "ended"
+                ? "Partie terminée. Merci d'avoir joué !"
+                : "L'animateur n'a pas encore ouvert le buzzer pour cette question."}
+            </p>
+          </div>
         )}
-        {snap.buzzOrder.length > 0 ? (
+      </section>
+
+      {snap.buzzOrder.length > 0 ? (
+        <section className="bz-queue">
+          <h2>File de buzz</h2>
           <ol>
             {snap.buzzOrder.map((idBuzz, idx) => {
               const pl = snap.players.find((x) => x.id === idBuzz);
+              const isMe = idBuzz === myId;
               return (
                 <li
                   key={`${idBuzz}-${idx}`}
-                  style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}
+                  className={`bz-queue-row ${isMe ? "bz-queue-me" : ""}`}
                 >
-                  {pl ? <AvatarFigure src={pl.avatarUrl} sizePx={26} /> : null}
-                  <span>
-                    {idx + 1}. {pl?.displayName ?? idBuzz}
+                  <span className="bz-queue-rank">{idx + 1}</span>
+                  <span className="bz-queue-name">
+                    {pl?.displayName ?? idBuzz}
+                    {isMe ? " · toi" : ""}
                   </span>
                 </li>
               );
             })}
           </ol>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
       {canChatRoom ? (
-        <section style={{ marginTop: 18 }}>
+        <section className="bz-chat">
           <h2>Chat</h2>
-          <textarea
-            value={chat}
-            rows={3}
-            style={{ width: "100%" }}
-            placeholder="Message…"
-            onChange={(e) => setChat(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || e.shiftKey) return;
-              e.preventDefault();
-              void sendChat(e.currentTarget.value);
-            }}
-          />
-          <button type="button" onClick={() => void sendChat()}>
-            Envoyer
-          </button>
-          <ul>
+          <div className="bz-chat-input">
+            <textarea
+              value={chat}
+              rows={2}
+              placeholder="Message…"
+              onChange={(e) => setChat(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || e.shiftKey) return;
+                e.preventDefault();
+                void sendChat(e.currentTarget.value);
+              }}
+            />
+            <button type="button" onClick={() => void sendChat()}>
+              Envoyer
+            </button>
+          </div>
+          <ul className="bz-chat-list">
             {snap.chatTail.slice(-15).map((m) => (
-              <li key={m.id}>
-                <strong>{m.displayName}</strong> : {m.text}
+              <li key={m.id} className="bz-chat-row">
+                <strong>{m.displayName}</strong>
+                <span>{m.text}</span>
               </li>
             ))}
           </ul>
         </section>
       ) : (
-        <p style={{ opacity: 0.7 }}>Chat disponible en lobby ou entre deux manches.</p>
+        <p className="bz-muted">
+          Chat disponible en lobby ou entre deux manches.
+        </p>
       )}
 
-      <p style={{ marginTop: 20 }}>
+      <p className="bz-leave">
         <button
           type="button"
-          onClick={() => nav(`/join?code=${encodeURIComponent(snap.joinCode)}`)}
+          onClick={() =>
+            nav(`/join?code=${encodeURIComponent(snap.joinCode)}`)
+          }
         >
-          Quitter pour changer pseudo, équipe ou avatar
+          Quitter pour changer pseudo / équipe
         </button>
       </p>
     </Shell>

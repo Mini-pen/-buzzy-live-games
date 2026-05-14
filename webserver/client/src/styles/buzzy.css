@@ -1,55 +1,40 @@
 /* ────────────────────────────────────────────────────────────────
- * Buzzy — design tokens & base style overrides
- * Phase 1 (theme) + Phase 2 (Home hero & resume cards).
- *
- * Drop-in stylesheet. Adds CSS variables + restyles native elements
- * (button, input, select, textarea, h1, h2, a) within the .bz-app
- * scope so existing JSX keeps working without changes.
+ * Buzzy — design tokens & style overrides
+ * Phase 1 (theme) + Phase 2 (Home) + Phase 3 (Play / buzzer).
+ * Drop-in stylesheet. Scoped under .bz-app set by the Shell.
  * ──────────────────────────────────────────────────────────────── */
 
 @import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap");
 
 :root {
-  /* Surfaces */
   --bz-bg: #0a0a12;
   --bz-bg-2: #11111b;
   --bz-surface: #181826;
   --bz-surface-2: #21212f;
   --bz-line: rgba(255, 255, 255, 0.07);
   --bz-line-strong: rgba(255, 255, 255, 0.16);
-
-  /* Ink */
   --bz-text: #f4f1e6;
   --bz-text-strong: #ffffff;
   --bz-muted: rgba(244, 241, 230, 0.58);
   --bz-faint: rgba(244, 241, 230, 0.36);
-
-  /* Accent */
   --bz-accent: #ffcc2e;
   --bz-accent-ink: #0a0a12;
   --bz-accent-soft: rgba(255, 204, 46, 0.18);
-
-  /* Status */
   --bz-good: #39e991;
   --bz-good-ink: #06321b;
   --bz-bad: #ff3d5a;
   --bz-info: #39ccff;
   --bz-info-soft: rgba(57, 204, 255, 0.16);
-
-  /* Type */
   --bz-f-display: "Bricolage Grotesque", system-ui, sans-serif;
   --bz-f-body: "Geist", system-ui, -apple-system, sans-serif;
   --bz-f-mono: "JetBrains Mono", ui-monospace, monospace;
-
-  /* Radii */
   --bz-r-sm: 10px;
   --bz-r-md: 14px;
   --bz-r-lg: 20px;
   --bz-r-pill: 999px;
 }
 
-html,
-body {
+html, body {
   background: var(--bz-bg);
   color: var(--bz-text);
   font-family: var(--bz-f-body);
@@ -59,10 +44,7 @@ body {
   margin: 0;
 }
 
-/* ──────────────────────────────────────────────────────────────
- * .bz-app — Shell wrapper. All native-element overrides live here.
- * ────────────────────────────────────────────────────────────── */
-
+/* ── App scope ───────────────────────────────────────────────── */
 .bz-app {
   min-height: 100vh;
   background:
@@ -72,25 +54,17 @@ body {
   color: var(--bz-text);
   font-family: var(--bz-f-body);
 }
-
 .bz-app * { box-sizing: border-box; }
-
-.bz-app h1,
-.bz-app h2,
-.bz-app h3,
-.bz-app h4 {
+.bz-app h1, .bz-app h2, .bz-app h3, .bz-app h4 {
   font-family: var(--bz-f-display);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--bz-text-strong);
   line-height: 1.1;
 }
+.bz-app strong, .bz-app b { color: var(--bz-text-strong); }
 
-.bz-app strong,
-.bz-app b { color: var(--bz-text-strong); }
-
-.bz-app .bz-code,
-.bz-app code {
+.bz-app .bz-code, .bz-app code {
   font-family: var(--bz-f-mono);
   letter-spacing: 0.2em;
   font-weight: 700;
@@ -101,7 +75,6 @@ body {
   color: var(--bz-text-strong);
 }
 
-/* Links */
 .bz-app a {
   color: var(--bz-accent);
   text-decoration: none;
@@ -110,12 +83,8 @@ body {
   transition: color 120ms ease, background 120ms ease;
 }
 .bz-app a:hover { color: var(--bz-text-strong); }
-.bz-app a:focus-visible {
-  outline: 2px solid var(--bz-accent);
-  outline-offset: 2px;
-}
+.bz-app a:focus-visible { outline: 2px solid var(--bz-accent); outline-offset: 2px; }
 
-/* Buttons */
 .bz-app button {
   font-family: var(--bz-f-body);
   font-weight: 600;
@@ -134,18 +103,11 @@ body {
   transition: transform 80ms ease, background 120ms ease, border-color 120ms ease;
   user-select: none;
 }
-.bz-app button:hover {
-  background: var(--bz-surface-2);
-  border-color: var(--bz-line-strong);
-}
+.bz-app button:hover { background: var(--bz-surface-2); border-color: var(--bz-line-strong); }
 .bz-app button:active { transform: translateY(1px); }
 .bz-app button:disabled { opacity: 0.45; cursor: not-allowed; }
-.bz-app button:focus-visible {
-  outline: 2px solid var(--bz-accent);
-  outline-offset: 2px;
-}
-.bz-app button[type="submit"],
-.bz-app .bz-primary {
+.bz-app button:focus-visible { outline: 2px solid var(--bz-accent); outline-offset: 2px; }
+.bz-app button[type="submit"], .bz-app .bz-primary {
   background: var(--bz-accent);
   color: var(--bz-accent-ink);
   border-color: transparent;
@@ -154,16 +116,10 @@ body {
     0 2px 0 color-mix(in oklab, var(--bz-accent) 50%, #000),
     0 10px 24px color-mix(in oklab, var(--bz-accent) 30%, transparent);
 }
-.bz-app button[type="submit"]:hover,
-.bz-app .bz-primary:hover { filter: brightness(1.06); }
+.bz-app button[type="submit"]:hover, .bz-app .bz-primary:hover { filter: brightness(1.06); }
 
-/* Inputs */
-.bz-app input[type="text"],
-.bz-app input[type="number"],
-.bz-app input[type="email"],
-.bz-app input:not([type]),
-.bz-app textarea,
-.bz-app select {
+.bz-app input[type="text"], .bz-app input[type="number"], .bz-app input[type="email"],
+.bz-app input:not([type]), .bz-app textarea, .bz-app select {
   font-family: var(--bz-f-body);
   height: 44px;
   padding: 0 12px;
@@ -176,19 +132,12 @@ body {
   outline: none;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
-.bz-app textarea {
-  height: auto; padding: 12px; line-height: 1.45;
-  resize: vertical; min-height: 80px;
-}
-.bz-app input:focus,
-.bz-app textarea:focus,
-.bz-app select:focus {
+.bz-app textarea { height: auto; padding: 12px; line-height: 1.45; resize: vertical; min-height: 80px; }
+.bz-app input:focus, .bz-app textarea:focus, .bz-app select:focus {
   border-color: var(--bz-accent);
   box-shadow: 0 0 0 3px var(--bz-accent-soft);
 }
-.bz-app input::placeholder,
-.bz-app textarea::placeholder { color: var(--bz-faint); }
-
+.bz-app input::placeholder, .bz-app textarea::placeholder { color: var(--bz-faint); }
 .bz-app label {
   font-size: 13px;
   color: var(--bz-muted);
@@ -196,21 +145,18 @@ body {
   align-items: center;
   gap: 8px;
 }
-.bz-app label input,
-.bz-app label select { width: auto; margin-left: 6px; }
+.bz-app label input, .bz-app label select { width: auto; margin-left: 6px; }
 .bz-app input[type="checkbox"] {
   width: 16px; height: 16px;
   accent-color: var(--bz-accent);
   margin: 0;
 }
-
 .bz-app ul, .bz-app ol { padding-left: 20px; }
 .bz-app li { margin: 4px 0; }
 .bz-app p { margin: 8px 0; }
 .bz-app .bz-muted { color: var(--bz-muted); }
 .bz-app section { margin-top: 14px; }
 
-/* Card */
 .bz-app .bz-card {
   background: var(--bz-surface);
   border: 1px solid var(--bz-line);
@@ -220,7 +166,6 @@ body {
   display: block;
 }
 
-/* Pill */
 .bz-app .bz-pill {
   display: inline-flex;
   align-items: center;
@@ -248,7 +193,6 @@ body {
   50%      { opacity: 1;   transform: scale(1.15); }
 }
 
-/* Logo */
 .bz-logo {
   display: inline-flex;
   align-items: baseline;
@@ -269,7 +213,6 @@ body {
   align-self: center;
 }
 
-/* Shell header */
 .bz-header {
   display: flex;
   align-items: center;
@@ -278,12 +221,7 @@ body {
   border-bottom: 1px solid var(--bz-line);
   margin-bottom: 24px;
 }
-.bz-header nav {
-  display: flex;
-  gap: 18px;
-  margin-left: auto;
-  font-size: 14px;
-}
+.bz-header nav { display: flex; gap: 18px; margin-left: auto; font-size: 14px; }
 .bz-header nav a { color: var(--bz-muted); font-weight: 500; }
 .bz-header nav a:hover { color: var(--bz-text); }
 .bz-header .bz-page-title {
@@ -296,7 +234,6 @@ body {
   padding-left: 18px;
 }
 
-/* Error helper */
 .bz-app p[style*="crimson"] {
   background: rgba(255, 61, 90, 0.08);
   border: 1px solid rgba(255, 61, 90, 0.3);
@@ -305,10 +242,7 @@ body {
   margin: 12px 0;
 }
 
-/* ──────────────────────────────────────────────────────────────
- * Phase 2 — Home (hero + resume cards)
- * ────────────────────────────────────────────────────────────── */
-
+/* ── Phase 2 — Home ──────────────────────────────────────────── */
 .bz-app .bz-hero {
   padding: 24px 0 28px;
   display: flex;
@@ -337,14 +271,7 @@ body {
   margin: 0;
   max-width: 520px;
 }
-
-/* CTA buttons rendered as <Link> — use anchor-as-button styling */
-.bz-app .bz-cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
-}
+.bz-app .bz-cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .bz-app .bz-cta {
   display: inline-flex;
   align-items: center;
@@ -372,7 +299,6 @@ body {
 }
 .bz-app .bz-cta.bz-primary:hover { filter: brightness(1.06); color: var(--bz-accent-ink); }
 
-/* Resume cards — clickable anchor cards */
 .bz-app .bz-resume-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -397,16 +323,8 @@ body {
   background: linear-gradient(180deg, var(--bz-surface), color-mix(in oklab, var(--bz-surface) 88%, var(--bz-accent) 12%));
   color: var(--bz-text);
 }
-.bz-app .bz-resume-card h2 {
-  font-size: 22px;
-  margin: 0;
-}
-.bz-app .bz-resume-card p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--bz-muted);
-  line-height: 1.5;
-}
+.bz-app .bz-resume-card h2 { font-size: 22px; margin: 0; }
+.bz-app .bz-resume-card p { margin: 0; font-size: 13px; color: var(--bz-muted); line-height: 1.5; }
 .bz-app .bz-resume-foot {
   margin-top: auto;
   padding-top: 6px;
@@ -416,11 +334,318 @@ body {
   align-items: center;
   gap: 8px;
 }
-.bz-app .bz-resume-foot .bz-arrow {
-  margin-left: auto;
-  color: var(--bz-accent);
-  font-weight: 700;
+.bz-app .bz-resume-foot .bz-arrow { margin-left: auto; color: var(--bz-accent); font-weight: 700; }
+.bz-app .bz-resume-foot code { letter-spacing: 0.18em; }
+
+/* ── Phase 3 — Play (player view) ────────────────────────────── */
+
+.bz-app .bz-identity-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-r-lg);
+  margin-bottom: 18px;
 }
-.bz-app .bz-resume-foot code {
-  letter-spacing: 0.18em;
+.bz-app .bz-avatar {
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  background: var(--bz-accent);
+  color: var(--bz-accent-ink);
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.bz-app .bz-identity-info { flex: 1; min-width: 0; }
+.bz-app .bz-identity-name { font-size: 16px; font-weight: 700; color: var(--bz-text-strong); }
+.bz-app .bz-identity-meta {
+  font-size: 12px;
+  color: var(--bz-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.bz-app .bz-identity-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+  gap: 4px;
+}
+.bz-app .bz-score-label {
+  font-family: var(--bz-f-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+}
+.bz-app .bz-score-value {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  color: var(--bz-text-strong);
+}
+
+/* Game board */
+.bz-app .bz-board {
+  margin: 18px 0;
+  padding: 22px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-r-lg);
+}
+.bz-app .bz-board--empty {
+  background: transparent;
+  border: 1px dashed var(--bz-line-strong);
+  padding: 18px 22px;
+}
+.bz-app .bz-board--empty h2 { font-size: 16px; margin: 0 0 4px; }
+.bz-app .bz-board--empty p { margin: 0; color: var(--bz-muted); font-size: 13px; }
+.bz-app .bz-board-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: var(--bz-f-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+  margin-bottom: 14px;
+}
+.bz-app .bz-board-prompt {
+  font-size: clamp(24px, 4vw, 32px);
+  line-height: 1.1;
+  margin: 0 0 18px;
+  color: var(--bz-text-strong);
+}
+.bz-app .bz-board-choices {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 600px) {
+  .bz-app .bz-board-choices { grid-template-columns: 1fr 1fr; }
+}
+.bz-app .bz-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--bz-r-md);
+  background: var(--bz-surface-2);
+  border: 1px solid var(--bz-line);
+  margin: 0;
+}
+.bz-app .bz-choice--correct {
+  background: rgba(57, 233, 145, 0.06);
+  border-color: var(--bz-good);
+}
+.bz-app .bz-choice-letter {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: var(--bz-bg);
+  color: var(--bz-text);
+  font-family: var(--bz-f-mono);
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.bz-app .bz-choice--correct .bz-choice-letter { background: var(--bz-good); color: var(--bz-good-ink); }
+.bz-app .bz-choice-text { flex: 1; font-size: 15px; font-weight: 500; color: var(--bz-text); }
+.bz-app .bz-board-video {
+  width: 100%;
+  max-height: 480px;
+  border-radius: var(--bz-r-md);
+  background: #000;
+  display: block;
+}
+.bz-app .bz-board-answer { margin: 14px 0 0; font-size: 14px; color: var(--bz-muted); }
+
+/* Buzz hero */
+.bz-app .bz-buzz-hero {
+  margin: 28px 0 18px;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-height: 280px;
+  justify-content: center;
+}
+.bz-app .bz-buzz-btn {
+  width: min(260px, 70vw);
+  height: min(260px, 70vw);
+  border-radius: 999px;
+  border: 6px solid color-mix(in oklab, var(--bz-accent) 60%, #000);
+  background: radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--bz-accent) 100%, white 14%), var(--bz-accent) 65%);
+  color: var(--bz-accent-ink);
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: clamp(40px, 12vw, 64px);
+  letter-spacing: -0.03em;
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 80ms ease, filter 80ms ease;
+  outline: none;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.bz-app .bz-buzz-btn.bz-buzz-armed {
+  animation: bz-buzz-pulse 1.6s ease-in-out infinite;
+}
+.bz-app .bz-buzz-btn:hover { filter: brightness(1.05); }
+.bz-app .bz-buzz-btn:active { transform: scale(0.95); filter: brightness(0.88); }
+.bz-app .bz-buzz-btn:focus-visible { outline: 4px solid var(--bz-accent-soft); outline-offset: 6px; }
+
+@keyframes bz-buzz-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 color-mix(in oklab, var(--bz-accent) 60%, transparent),
+      0 0 64px color-mix(in oklab, var(--bz-accent) 35%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 28px color-mix(in oklab, var(--bz-accent) 0%, transparent),
+      0 0 96px color-mix(in oklab, var(--bz-accent) 55%, transparent);
+  }
+}
+
+.bz-app .bz-buzz-closed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 32px 16px;
+}
+.bz-app .bz-buzz-closed p {
+  font-size: 14px;
+  color: var(--bz-muted);
+  max-width: 340px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Queue */
+.bz-app .bz-queue { margin: 22px 0; }
+.bz-app .bz-queue h2 {
+  font-family: var(--bz-f-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+  margin: 0 0 10px;
+}
+.bz-app .bz-queue ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bz-app .bz-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-r-md);
+  margin: 0;
+}
+.bz-app .bz-queue-row.bz-queue-me {
+  background: var(--bz-accent-soft);
+  border-color: var(--bz-accent);
+}
+.bz-app .bz-queue-rank {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: 24px;
+  width: 28px;
+  color: var(--bz-muted);
+  line-height: 1;
+}
+.bz-app .bz-queue-row.bz-queue-me .bz-queue-rank { color: var(--bz-accent); }
+.bz-app .bz-queue-name { flex: 1; font-size: 15px; font-weight: 600; color: var(--bz-text); }
+
+/* Chat */
+.bz-app .bz-chat { margin: 24px 0 12px; }
+.bz-app .bz-chat h2 {
+  font-family: var(--bz-f-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+  margin: 0 0 12px;
+}
+.bz-app .bz-chat-input {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+.bz-app .bz-chat-input textarea {
+  flex: 1;
+  min-height: 44px;
+  height: 44px;
+  padding: 12px;
+}
+.bz-app .bz-chat-input button { white-space: nowrap; }
+.bz-app .bz-chat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow: auto;
+}
+.bz-app .bz-chat-row {
+  padding: 6px 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  border-radius: 8px;
+  margin: 0;
+}
+.bz-app .bz-chat-row strong {
+  font-weight: 700;
+  color: var(--bz-accent);
+  margin-right: 6px;
+}
+
+.bz-app .bz-leave {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--bz-line);
+  text-align: center;
+}
+.bz-app .bz-leave button {
+  background: transparent;
+  border-color: var(--bz-line);
+  color: var(--bz-muted);
+  height: 36px;
+  font-size: 13px;
 }
