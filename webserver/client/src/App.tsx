@@ -28,6 +28,28 @@ function adminSessionKey(pid: string): string {
   return `partygames:adminToken:${pid}`;
 }
 
+/** * Browser-only: restores admin Bearer from `#token=` or sessionStorage synchronously on first paint. */
+function peekAdminBearer(pid: string): string | null {
+  if (pid === "" || typeof globalThis.window === "undefined") return null;
+  const rawHash = window.location.hash;
+  const h =
+    typeof rawHash === "string" && rawHash.startsWith("#") ? rawHash.slice(1) : "";
+  const frag = new URLSearchParams(h).get("token");
+  let t = sessionStorage.getItem(adminSessionKey(pid));
+  if (frag !== null && frag.length > 0) {
+    sessionStorage.setItem(adminSessionKey(pid), frag);
+    window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
+    t = frag;
+  }
+  return typeof t === "string" && t.length > 0 ? t : null;
+}
+
+/** * Browser-only: player JWT persisted for `/party/:id/play` hydration before first React commit. */
+function peekPlayerJwt(pid: string): string | null {
+  if (pid === "" || typeof globalThis.sessionStorage === "undefined") return null;
+  return sessionStorage.getItem(playerSessionKey(pid));
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, {
     ...init,
@@ -137,6 +159,16 @@ function Join(): JSX.Element {
 
   return (
     <Shell title="Rejoindre une partie">
+      {partyId !== "" && peekPlayerJwt(partyId) !== null ? (
+        <p style={{ marginBottom: 16 }}>
+          <button
+            type="button"
+            onClick={() => nav(`/party/${encodeURIComponent(partyId)}/play`)}
+          >
+            Reprendre le lobby (vous êtes déjà inscrit sur cet appareil)
+          </button>
+        </p>
+      ) : null}
       <form onSubmit={(e) => void onSubmit(e)} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <label>
           Code
@@ -183,7 +215,7 @@ function Join(): JSX.Element {
         ) : null}
         {err ? <p style={{ color: "crimson" }}>{err}</p> : null}
         <button type="submit" disabled={snap === null || loading}>
-          Entrer dans le lobby
+          Rejoindre le lobby / la partie
         </button>
       </form>
       {snap === null && code.trim().length >= 4 ? <p>Code introuvable…</p> : null}
@@ -307,19 +339,18 @@ function Play(): JSX.Element {
   const { partyId } = useParams<{ partyId: string }>();
   const pid = partyId ?? "";
   const nav = useNavigate();
-  const [jwtState, setJwtState] = useState<string | null>(null);
+  const [jwt, setJwt] = useState<string | null>(() => peekPlayerJwt(pid));
 
   useEffect(() => {
-    setJwtState(sessionStorage.getItem(playerSessionKey(pid)));
+    setJwt(peekPlayerJwt(pid));
   }, [pid]);
 
-  const jwt = jwtState ?? "";
   const [snap, setSnap] = useState<PartySnapshot | null>(null);
   const [chat, setChat] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pid || jwt === "") return undefined;
+    if (!pid || jwt === null || jwt === "") return undefined;
 
     fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(pid)}`)
       .then((s1) => setSnap(s1))
@@ -340,7 +371,7 @@ function Play(): JSX.Element {
   }, [pid, jwt]);
 
   async function buzz(): Promise<void> {
-    if (!pid || jwt === "") return;
+    if (!pid || jwt === null || jwt === "") return;
     setErr(null);
     try {
       const snapRes = await fetchJson<PartySnapshot>(`/api/parties/${pid}/me/buzz`, {
@@ -355,7 +386,7 @@ function Play(): JSX.Element {
   }
 
   async function sendChat(): Promise<void> {
-    if (!pid || jwt === "") return;
+    if (!pid || jwt === null || jwt === "") return;
     setErr(null);
     try {
       const snapRes = await fetchJson<PartySnapshot>(`/api/parties/${pid}/me/chat`, {
@@ -372,7 +403,7 @@ function Play(): JSX.Element {
 
   if (!pid) return <Navigate to="/join" replace />;
 
-  if (jwt === "")
+  if (jwt === null || jwt === "")
     return <Navigate to={`/join?party=${encodeURIComponent(pid)}`} replace />;
 
   /** * Spinner before first REST response. */
@@ -485,7 +516,7 @@ function Admin(): JSX.Element {
   const { partyId } = useParams<{ partyId: string }>();
   const pid = partyId ?? "";
   const nav = useNavigate();
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => peekAdminBearer(pid));
   const [snap, setSnap] = useState<PartySnapshot | null>(null);
   const [packsList, setPacksList] = useState<
     Array<{ basename: string; id: string; title: string; roundCount?: number }>
@@ -502,19 +533,7 @@ function Admin(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    const h =
-      typeof window !== "undefined" && window.location.hash.startsWith("#")
-        ? window.location.hash.slice(1)
-        : "";
-    const sp = new URLSearchParams(h);
-    const frag = sp.get("token");
-    let t = pid ? sessionStorage.getItem(adminSessionKey(pid)) : null;
-    if (frag && frag.length > 0) {
-      sessionStorage.setItem(adminSessionKey(pid), frag);
-      t = frag;
-      window.history.replaceState({}, "", window.location.pathname + window.location.search);
-    }
-    setToken(t);
+    setToken(peekAdminBearer(pid));
   }, [pid]);
 
   const bearer = token ?? "";
@@ -556,11 +575,22 @@ function Admin(): JSX.Element {
       body: method === "GET" ? undefined : rBody,
     });
     const text = await res.text();
-    if (!res.ok)
-      throw new Error(
-        `${res.status}:${text ? (JSON.parse(text) as ErrBody).error ?? text : ""}`,
-      );
-    return JSON.parse(text) as PartySnapshot;
+    if (!res.ok) {
+      let detail = text.slice(0, 200);
+      if (text !== "") {
+        try {
+          detail = (JSON.parse(text) as ErrBody).error ?? text;
+        } catch {
+          /* keep raw text */
+        }
+      }
+      throw new Error(`${res.status}:${detail}`);
+    }
+    try {
+      return JSON.parse(text) as PartySnapshot;
+    } catch {
+      throw new Error(`${res.status}:INVALID_JSON`);
+    }
   }
 
   if (!pid) return <Navigate to="/create" replace />;
@@ -653,6 +683,9 @@ function Admin(): JSX.Element {
 
   return (
     <Shell title={`Animateur · ${snap.joinCode}`}>
+      <p>
+        État : <strong>{snap.state}</strong>
+      </p>
       <p>Code joueurs : <strong>{snap.joinCode}</strong></p>
       <p>Lien rejoindre (partager) :</p>
       <code style={{ wordBreak: "break-all", display: "block", marginBottom: 12 }}>{joinUrl}</code>
