@@ -19,7 +19,7 @@ import {
   AVATAR_CATALOG,
   DEFAULT_AVATAR_KEY,
 } from "../avatars/catalog.js";
-import { youtubeWatchUrlToEmbedUrl } from "./youtubeEmbed.js";
+import { youtubeWatchUrlToEmbedUrl } from "../domain/youtubeEmbed.js";
 
 export interface PartyRouteDeps {
   store: PartyStore;
@@ -246,8 +246,10 @@ export async function registerPartyRoutes(
       try {
         const party = requireParty(store, req.params.partyId);
         const token = readBearer(req.headers.authorization);
-        if (token !== null && store.verifyAdminToken(party, token))
-          return snapHost(party);
+        if (typeof token === "string" && token.trim() !== "") {
+          if (store.verifyAdminToken(party, token)) return snapHost(party);
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        }
         return snapPlayer(party);
       } catch (err) {
         return replyDomain(reply, err);

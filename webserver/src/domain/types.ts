@@ -11,7 +11,7 @@ export interface MancheCatalogItem {
   /** * Basename keys `games/*.json` when `kind === pack_quiz`. */
   packBasename: string | null;
   iframeUrl: string | null;
-  /** * Normalised `https://www.youtube.com/embed/{id}` when `kind === youtube`. */
+  /** * Canonical iframe `src` (`youtube-nocookie.com/embed/{id}?…`). */
   youtubeEmbedUrl: string | null;
   directVideoUrl: string | null;
   /** * Saved quiz position inside the loaded pack while this item is active. */

@@ -1,5 +1,6 @@
 import type { QuizPack } from "../games/pack.js";
 import { isVideoRound } from "../games/pack.js";
+import { canonicalYoutubeEmbedIframeSrc } from "./youtubeEmbed.js";
 import { publicSnapshotForParty } from "./partyLogic.js";
 import type {
   Party,
@@ -47,10 +48,12 @@ function deriveGameBoard(
       item.youtubeEmbedUrl.trim() === ""
     )
       return null;
+    const embedUrl = canonicalYoutubeEmbedIframeSrc(item.youtubeEmbedUrl);
+    if (embedUrl === null) return null;
     return {
       kind: "youtube",
       title: item.title,
-      embedUrl: item.youtubeEmbedUrl,
+      embedUrl,
       replaySerial: party.videoReplaySerial,
     };
   }
