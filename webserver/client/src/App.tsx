@@ -525,17 +525,6 @@ function Join(): JSX.Element {
           />
         </label>
         <label>
-          UUID de la partie (facultatif, anciens liens seulement ; le code suffit)
-          <input
-            style={{ width: "100%", marginTop: 4 }}
-            value={partyId}
-            onChange={(e) =>
-              setPartyId(canonicalPartyIdFromRoute(e.target.value))
-            }
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          />
-        </label>
-        <label>
           Pseudo (2–48 caractères)
           <input
             style={{ width: "100%", marginTop: 4 }}
