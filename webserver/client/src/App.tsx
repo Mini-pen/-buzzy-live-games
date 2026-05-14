@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { io, type Socket } from "socket.io-client";
 
 interface PartySnapshot {
@@ -577,6 +578,8 @@ function Admin(): JSX.Element {
   if (snap === null)
     return <Shell title="Admin">Chargement…</Shell>;
 
+  const joinUrl = `${window.location.origin}/join?code=${encodeURIComponent(snap.joinCode)}&party=${encodeURIComponent(pid)}`;
+
   async function runRound(mode: "start" | "pause"): Promise<void> {
     setErr(null);
     try {
@@ -652,10 +655,17 @@ function Admin(): JSX.Element {
     <Shell title={`Animateur · ${snap.joinCode}`}>
       <p>Code joueurs : <strong>{snap.joinCode}</strong></p>
       <p>Lien rejoindre (partager) :</p>
-      <code>
-        {`${window.location.origin}/join?code=${encodeURIComponent(snap.joinCode)}&party=${encodeURIComponent(pid)}`}
-      </code>
-      <p>Lien rejoindre (QR) à générer côté client à partir du lien ci‑dessus.</p>
+      <code style={{ wordBreak: "break-all", display: "block", marginBottom: 12 }}>{joinUrl}</code>
+      <figure style={{ margin: "16px 0" }}>
+        <QRCodeSVG
+          value={joinUrl}
+          size={220}
+          level="M"
+          includeMargin
+          aria-label="QR code rejoindre la partie"
+        />
+        <figcaption style={{ fontSize: 13, opacity: 0.85 }}>QR code (même URL que ci‑dessus)</figcaption>
+      </figure>
       {err ? <pre style={{ color: "crimson", whiteSpace: "pre-wrap" }}>{err}</pre> : null}
 
       <section style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
