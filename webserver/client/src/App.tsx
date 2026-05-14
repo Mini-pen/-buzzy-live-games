@@ -21,33 +21,95 @@ interface PartySnapshot {
 }
 
 function playerSessionKey(pid: string): string {
-  return `partygames:playerJwt:${pid}`;
+  return `partygames:playerJwt:${pid.trim().toLowerCase()}`;
 }
 
 function adminSessionKey(pid: string): string {
-  return `partygames:adminToken:${pid}`;
+  return `partygames:adminToken:${pid.trim().toLowerCase()}`;
+}
+
+/** * Case-insensitive lookup for admin token (URL path vs legacy storage key mismatch). */
+function findAdminBearerForPartyRouteId(routePartyIdRaw: string): string | null {
+  if (routePartyIdRaw.trim() === "" || typeof globalThis.sessionStorage === "undefined")
+    return null;
+  const needle = routePartyIdRaw.trim().toLowerCase();
+  const prefix = "partygames:adminToken:";
+  let foundKey: string | null = null;
+  let tok: string | null = null;
+  for (let i = 0; i < sessionStorage.length; i += 1) {
+    const k = sessionStorage.key(i);
+    if (k === null || !k.startsWith(prefix)) continue;
+    const idPart = k.slice(prefix.length);
+    if (idPart.toLowerCase() === needle) {
+      const t = sessionStorage.getItem(k);
+      if (typeof t === "string" && t.length > 0) {
+        foundKey = k;
+        tok = t;
+        break;
+      }
+    }
+  }
+  if (tok !== null && foundKey !== null && foundKey !== adminSessionKey(needle)) {
+    sessionStorage.setItem(adminSessionKey(needle), tok);
+    sessionStorage.removeItem(foundKey);
+  }
+  return tok;
+}
+
+/** * Case-insensitive lookup for player JWT (same issue as admin keys). */
+function findPlayerJwtForPartyRouteId(routePartyIdRaw: string): string | null {
+  if (routePartyIdRaw.trim() === "" || typeof globalThis.sessionStorage === "undefined")
+    return null;
+  const needle = routePartyIdRaw.trim().toLowerCase();
+  const prefix = "partygames:playerJwt:";
+  let foundKey: string | null = null;
+  let tok: string | null = null;
+  for (let i = 0; i < sessionStorage.length; i += 1) {
+    const k = sessionStorage.key(i);
+    if (k === null || !k.startsWith(prefix)) continue;
+    const idPart = k.slice(prefix.length);
+    if (idPart.toLowerCase() === needle) {
+      const t = sessionStorage.getItem(k);
+      if (typeof t === "string" && t.length > 0) {
+        foundKey = k;
+        tok = t;
+        break;
+      }
+    }
+  }
+  if (tok !== null && foundKey !== null && foundKey !== playerSessionKey(needle)) {
+    sessionStorage.setItem(playerSessionKey(needle), tok);
+    sessionStorage.removeItem(foundKey);
+  }
+  return tok;
+}
+
+/** * Normalizes party id from the route (store + API use lowercase UUIDs). */
+function canonicalPartyIdFromRoute(param: string | undefined): string {
+  return (param ?? "").trim().toLowerCase();
 }
 
 /** * Browser-only: restores admin Bearer from `#token=` or sessionStorage synchronously on first paint. */
-function peekAdminBearer(pid: string): string | null {
-  if (pid === "" || typeof globalThis.window === "undefined") return null;
+function peekAdminBearer(routePartyIdRaw: string): string | null {
+  if (routePartyIdRaw.trim() === "" || typeof globalThis.window === "undefined") return null;
+  const pidNorm = canonicalPartyIdFromRoute(routePartyIdRaw);
   const rawHash = window.location.hash;
   const h =
     typeof rawHash === "string" && rawHash.startsWith("#") ? rawHash.slice(1) : "";
   const frag = new URLSearchParams(h).get("token");
-  let t = sessionStorage.getItem(adminSessionKey(pid));
+  let t = findAdminBearerForPartyRouteId(routePartyIdRaw);
   if (frag !== null && frag.length > 0) {
-    sessionStorage.setItem(adminSessionKey(pid), frag);
+    sessionStorage.setItem(adminSessionKey(pidNorm), frag);
     window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
-    t = frag;
+    return frag;
   }
   return typeof t === "string" && t.length > 0 ? t : null;
 }
 
 /** * Browser-only: player JWT persisted for `/party/:id/play` hydration before first React commit. */
-function peekPlayerJwt(pid: string): string | null {
-  if (pid === "" || typeof globalThis.sessionStorage === "undefined") return null;
-  return sessionStorage.getItem(playerSessionKey(pid));
+function peekPlayerJwt(routePartyIdRaw: string): string | null {
+  if (routePartyIdRaw === "" || typeof globalThis.sessionStorage === "undefined") return null;
+  return findPlayerJwtForPartyRouteId(routePartyIdRaw);
 }
 
 /** * Last party id hints (tab session). Same browser session scope as a cookie for this SPA. */
@@ -58,8 +120,9 @@ const STORAGE_LAST_ADMIN_PARTY = "partygames:lastAdminPartyId";
 /** * Records the player party id for the home page resume link; join code is optional display cache. */
 function rememberPlayerParty(partyId: string, joinCode?: string): void {
   if (typeof globalThis.sessionStorage === "undefined") return;
-  if (partyId === "") return;
-  sessionStorage.setItem(STORAGE_LAST_PLAYER_PARTY, partyId);
+  const id = canonicalPartyIdFromRoute(partyId);
+  if (id === "") return;
+  sessionStorage.setItem(STORAGE_LAST_PLAYER_PARTY, id);
   if (joinCode !== undefined && joinCode !== "")
     sessionStorage.setItem(STORAGE_LAST_PLAYER_CODE, joinCode);
 }
@@ -67,8 +130,9 @@ function rememberPlayerParty(partyId: string, joinCode?: string): void {
 /** * Records the admin party id after create or when the host panel is open with a valid token. */
 function rememberAdminParty(partyId: string): void {
   if (typeof globalThis.sessionStorage === "undefined") return;
-  if (partyId === "") return;
-  sessionStorage.setItem(STORAGE_LAST_ADMIN_PARTY, partyId);
+  const id = canonicalPartyIdFromRoute(partyId);
+  if (id === "") return;
+  sessionStorage.setItem(STORAGE_LAST_ADMIN_PARTY, id);
 }
 
 function listPartyIdsWithStoredPlayerJwt(): string[] {
@@ -105,21 +169,28 @@ function listPartyIdsWithStoredAdminToken(): string[] {
 function resolvePlayerPartyIdToResume(): string | null {
   if (typeof globalThis.sessionStorage === "undefined") return null;
   const last = sessionStorage.getItem(STORAGE_LAST_PLAYER_PARTY);
-  if (last !== null && last !== "" && peekPlayerJwt(last) !== null) return last;
+  if (last !== null && last !== "" && findPlayerJwtForPartyRouteId(last) !== null) {
+    const c = canonicalPartyIdFromRoute(last);
+    return c === "" ? null : c;
+  }
   const all = listPartyIdsWithStoredPlayerJwt();
-  return all.length > 0 ? all[0] ?? null : null;
+  if (all.length === 0) return null;
+  const c = canonicalPartyIdFromRoute(all[0] ?? "");
+  return c === "" ? null : c;
 }
 
 /** * Party id if an admin token is still in session for this tab. */
 function resolveAdminPartyIdToResume(): string | null {
   if (typeof globalThis.sessionStorage === "undefined") return null;
   const last = sessionStorage.getItem(STORAGE_LAST_ADMIN_PARTY);
-  if (last !== null && last !== "") {
-    const tok = sessionStorage.getItem(adminSessionKey(last));
-    if (typeof tok === "string" && tok.length > 0) return last;
+  if (last !== null && last !== "" && findAdminBearerForPartyRouteId(last) !== null) {
+    const c = canonicalPartyIdFromRoute(last);
+    return c === "" ? null : c;
   }
   const all = listPartyIdsWithStoredAdminToken();
-  return all.length > 0 ? all[0] ?? null : null;
+  if (all.length === 0) return null;
+  const c = canonicalPartyIdFromRoute(all[0] ?? "");
+  return c === "" ? null : c;
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -430,9 +501,10 @@ function PlayersPreview(props: { snap: PartySnapshot }): JSX.Element {
 /** * No player JWT: load public snapshot to redirect to `/join?code=` only (compact invite links / QR). */
 function RedirectJoinForReauth(props: { partyId: string }): JSX.Element {
   const nav = useNavigate();
+  const pidCanon = canonicalPartyIdFromRoute(props.partyId);
   useEffect(() => {
     let cancelled = false;
-    void fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(props.partyId)}`)
+    void fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(pidCanon)}`)
       .then((s) => {
         if (!cancelled)
           nav(`/join?code=${encodeURIComponent(s.joinCode)}`, { replace: true });
@@ -443,7 +515,7 @@ function RedirectJoinForReauth(props: { partyId: string }): JSX.Element {
     return (): void => {
       cancelled = true;
     };
-  }, [props.partyId, nav]);
+  }, [pidCanon, nav]);
   return (
     <Shell title="Redirection…">
       <p>Ouverture de la page rejoindre…</p>
@@ -549,7 +621,7 @@ function Create(): JSX.Element {
 
 function Play(): JSX.Element {
   const { partyId } = useParams<{ partyId: string }>();
-  const pid = partyId ?? "";
+  const pid = canonicalPartyIdFromRoute(partyId);
   const nav = useNavigate();
   const [jwt, setJwt] = useState<string | null>(() => peekPlayerJwt(pid));
 
@@ -726,7 +798,7 @@ function Play(): JSX.Element {
 
 function Admin(): JSX.Element {
   const { partyId } = useParams<{ partyId: string }>();
-  const pid = partyId ?? "";
+  const pid = canonicalPartyIdFromRoute(partyId);
   const nav = useNavigate();
   const [token, setToken] = useState<string | null>(() => peekAdminBearer(pid));
   const [snap, setSnap] = useState<PartySnapshot | null>(null);
@@ -737,6 +809,9 @@ function Admin(): JSX.Element {
   const [err, setErr] = useState<string | null>(null);
   const [hostChat, setHostChat] = useState("");
   const [deltaById, setDeltaById] = useState<Record<string, string>>({});
+  const [adminBootstrap, setAdminBootstrap] = useState<"loading" | "ready" | "unavailable">(
+    "loading",
+  );
 
   useEffect(() => {
     void fetchJson<{
@@ -753,9 +828,31 @@ function Admin(): JSX.Element {
   useEffect(() => {
     if (!pid || bearer === "") return undefined;
 
+    let cancelled = false;
+    setAdminBootstrap("loading");
+    setSnap(null);
+
     void fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(pid)}`)
-      .then((s2) => setSnap(s2))
-      .catch(() => setSnap(null));
+      .then((s2) => {
+        if (!cancelled) {
+          setSnap(s2);
+          setAdminBootstrap("ready");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSnap(null);
+          setAdminBootstrap("unavailable");
+        }
+      });
+
+    return (): void => {
+      cancelled = true;
+    };
+  }, [pid, bearer]);
+
+  useEffect(() => {
+    if (!pid || bearer === "" || adminBootstrap !== "ready") return undefined;
 
     const s: Socket = io({
       transports: ["websocket", "polling"],
@@ -767,12 +864,12 @@ function Admin(): JSX.Element {
       s.off("party:patch", onSnap);
       s.disconnect();
     };
-  }, [pid, bearer]);
+  }, [pid, bearer, adminBootstrap]);
 
   useEffect(() => {
-    if (!pid || bearer === "") return;
+    if (adminBootstrap !== "ready" || !pid || bearer === "") return;
     rememberAdminParty(pid);
-  }, [pid, bearer]);
+  }, [adminBootstrap, pid, bearer]);
 
   const callHostSnapshot = useCallback(
     async (
@@ -920,8 +1017,38 @@ function Admin(): JSX.Element {
       </Shell>
     );
 
-  if (snap === null)
+  if (adminBootstrap === "loading")
     return <Shell title="Admin">Chargement…</Shell>;
+
+  if (adminBootstrap === "unavailable")
+    return (
+      <Shell title="Animateur">
+        <p>
+          Impossible de charger cette partie : elle n’existe plus sur le serveur (après une période
+          d’inactivité ou un redémarrage) ou une erreur réseau s’est produite.
+        </p>
+        <p>
+          Le lien « Reprendre » sur l’accueil ne peut pas restaurer une partie effacée ; il faut en
+          créer une nouvelle.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            sessionStorage.removeItem(adminSessionKey(pid));
+            const last = sessionStorage.getItem(STORAGE_LAST_ADMIN_PARTY);
+            if (last !== null && canonicalPartyIdFromRoute(last) === pid) {
+              sessionStorage.removeItem(STORAGE_LAST_ADMIN_PARTY);
+            }
+            nav("/", { replace: true });
+          }}
+        >
+          Retour à l’accueil et effacer ce jeton animateur
+        </button>
+      </Shell>
+    );
+
+  if (snap === null)
+    return <Shell title="Admin">Synchronisation…</Shell>;
 
   const joinUrl = `${window.location.origin}/join?code=${encodeURIComponent(snap.joinCode)}`;
 
