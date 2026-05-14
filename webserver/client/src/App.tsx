@@ -710,7 +710,7 @@ function Create(): JSX.Element {
   const [teamsUnlimited, setTeamsUnlimited] = useState(false);
   const [maxPlayers, setMaxPlayers] = useState(12);
   const [maxTeams, setMaxTeams] = useState(3);
-  const [closedAfterStart, setClosedAfterStart] = useState(true);
+  const [closedAfterStart, setClosedAfterStart] = useState(false);
   const [allowRename, setAllowRename] = useState(true);
   const [allowTeamChange, setAllowTeamChange] = useState(true);
   const [err, setErr] = useState<string | null>(null);
