@@ -19,4 +19,4 @@ npm test
 npm run dev
 ```
 
-Production (Docker) : voir la section correspondante dans `manuel.md`.
+Production (Docker) : `./scripts/deploy-docker-stack.sh` (rebuild sans cache + redémarrage Traefik) ou la section Docker dans [`manuel.md`](./manuel.md).

@@ -17,11 +17,26 @@ Ce projet suppose la même convention que `therapia.origin/traefik` :
 
 ## Déploiement
 
+### Script recommandé (rebuild propre + redémarrage Traefik)
+
+Depuis la racine du dépôt, avec `.env` rempli (**`JWT_SECRET`** obligatoire) :
+
+```bash
+./scripts/deploy-docker-stack.sh
+```
+
+Le script : arrête les conteneurs du compose courant ; supprime l’image **`buzzy-live-games:local`** ; retire par défaut les conteneurs restants du projet Docker Compose **`partygames`** (souvent orphelins quand `PartyGames/` a été renommé) pour éviter l’erreur Traefik **`Router defined multiple times`** sur `buzzylive-http` / `buzzylive-https` ; reconstruit sans cache (`docker compose build --no-cache`) ; démarre le service ; puis **redémarre Traefik** (`docker compose restart traefik` si `~/dev/traefik/docker-compose.yml` existe, sinon `docker restart traefik`).
+
+Variables optionnelles : `REMOVE_LEGACY_PARTYGAMES=0` pour garder les anciennes stacks ; `TRAEFIK_COMPOSE_DIR=/chemin/vers/traefik` si le dossier Compose Traefik n’est pas `~/dev/traefik`.
+
+### Déploiement manuel minimal
+
 ```bash
 cd buzzy-live-games
-cp .env.example .env   # optionnel : le compose a déjà ce host en repli par défaut
-docker compose build
+cp .env.example .env   # puis renseigner JWT_SECRET au minimum
+docker compose build --no-cache
 docker compose up -d
+# si routage bizarre : docker restart traefik
 ```
 
 Vérifier que **`partygames.from-beyond.fr`** résout vers l’hôte où tournent Traefik et ce stack.

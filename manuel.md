@@ -89,10 +89,19 @@ npm start   # après build : serve sur PORT (défaut 3000) + fichiers dans dist/
 
 ## 5. Déploiement Docker (production)
 
-À lancer depuis **`PartyGame/`** (pour que **`context: .`** inclue **`games/`**).
+À lancer depuis la racine du dépôt (pour que **`context: .`** inclue **`games/`**).
+
+**Recommandé** — rebuild complet, suppression de l’image locale, suppression des anciens conteneurs du projet Compose **`partygames`** si présents (évite *Router defined multiple times*), puis **`docker compose restart traefik`** quand **`~/dev/traefik`** est détecté :
 
 ```bash
-cd PartyGame
+cd buzzy-live-games   # racine du dépôt buzzy-live-games
+./scripts/deploy-docker-stack.sh
+```
+
+Ou manuellement :
+
+```bash
+cd buzzy-live-games
 
 # .env doit contenir au minimum JWT_SECRET (et PUBLIC_URL/PARTYGAMES_HOST adaptés).
 cp .env.example .env
@@ -192,8 +201,8 @@ Une fois **`A`** visible partout :
 | Install local | `cd PartyGame/webserver && npm install` |
 | Build + tests | `npm run build && npm run test && npm test` |
 | Dév API + SPA | `npm run dev` |
-| Image prod | Depuis **`PartyGame/`** : `docker compose build` |
-| Démarrage prod | Depuis **`PartyGame/`** : `docker compose up -d` |
+| Image prod | Depuis racine **`buzzy-live-games/`** : `docker compose build` ou `./scripts/deploy-docker-stack.sh` |
+| Démarrage prod | `docker compose up -d` *(ou script ci‑dessus)* |
 | Santé | `curl -fsS http://127:3000/api/health` *(depuis la machine hôte avec port mappé si besoin)* |
 
 ---

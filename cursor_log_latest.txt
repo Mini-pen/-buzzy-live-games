@@ -1,48 +1,41 @@
 # Journal de bord — buzzy-live-games (session la plus récente)
 
-**Date** : 2026-05-14  
-**Contexte** : Reprise du dépôt sans cursor_log dans l’arborescence ; demande utilisateur :
-ajouter les fichiers de journal et aligner la documentation sur l’état réel du code.
+**Date** : 2026-05-14 (après-midi)  
+**Contexte** : Site `partygames.from-beyond.fr` inaccessible / routage Traefik cassé.
 
-## Objectifs de cette session
+## Objectifs
 
-- Introduire `cursor_log_latest.txt` + `cursor_log_archive.txt` à la racine du dépôt.
-- Réécrire `DEV_PLAN.md` (architecture, checklist, backlog réalistes, prochaines actions).
-- Mettre à jour `README.md` et `manuel.md` (références docs, variables d’environnement liées au sweep).
+- Supprimer l’image / stack en conflit et redéployer proprement.
+- Script unique build + up + restart Traefik.
+- Documenter le piège « deux stacks = routeurs dupliqués ».
 
 ## Réalisations
 
-### Journal Cursor
+### Cause racine
 
-- `cursor_log_archive.txt` : bloc de contexte pré-journal + gabarit pour empiler les sessions
-  lors des clôtures futures (merge depuis latest comme convenu avec l’Architecte).
-- `cursor_log_latest.txt` : ce fichier (point de reprise unique pour le prochain chat).
+- Deux conteneurs enregistraient les **mêmes** routeurs Traefik **`buzzylive-http`** / **`buzzylive-https`** :
+  - projet Compose **`partygames`** (répertoire obsolète `PartyGames/`),
+  - projet **`buzzy-live-games`** actuel — logs : *Router defined multiple times*.
+- Correction : suppression des conteneurs `label=com.docker.compose.project=partygames`,
+  puis un seul `docker compose up` depuis `buzzy-live-games/`.
 
-### Documentation
+### Opérations effectuées sur l’hôte
 
-- `DEV_PLAN.md` :
-  - Arborescence et stack alignées sur le repo (racine `.`, `webserver/`, etc.).
-  - Section « Implémentation actuelle » : routes HTTP, événements Socket.IO, données persistées/non persistées.
-  - Checkboxes [x]/[ ] sur la liste de tâches avec écarts précis (UI question texte,
-    e2e, formulaire PATCH /me depuis l’écran joueur si souhaité).
-  - Nouvelles prochaines actions cohérentes avec les gaps résiduels.
-- `README.md` : lien vers `DEV_PLAN.md` et fichiers journal.
-- `manuel.md` : `PARTY_MAX_IDLE_MS`, `PARTY_SWEEP_INTERVAL_MS` dans le tableau des variables.
+- `./scripts/deploy-docker-stack.sh` exécuté : `rmi -f buzzy-live-games:local`,
+  build `--no-cache`, `up -d`, `docker compose restart traefik` depuis `~/dev/traefik`.
+- Vérification : `curl -skI -H 'Host: partygames.from-beyond.fr' https://127.0.0.1/` → **HTTP 200**.
 
-### Rappel — session précédente (court)
+### Fichiers ajoutés / modifiés
 
-- Vue admin : génération d’un **QRCodeSVG** (`qrcode.react`) pour le lien `/join` partagé.
+- **`scripts/deploy-docker-stack.sh`** (bash, exécutable) — variables : `REMOVE_LEGACY_PARTYGAMES`,
+  `TRAEFIK_COMPOSE_DIR`, `TRAEFIK_SERVICE_NAME`, `TRAEFIK_CONTAINER_NAME`.
+- **`TRAEFIK.md`**, **`manuel.md`**, **`README.md`** : procédure de déploiement via le script.
 
 ## Prochain focus suggéré
 
-- Diffuser dans le snapshot (ou événements dédiés) le libellé de la question/manifeste depuis
-  le pack chargé, puis l’afficher au centre de la vue joueur.
-- Ou : tests Playwright minimal (créer → rejoindre → buzzer).
-- Ou : formulaire léger PATCH `/api/parties/:id/me` depuis le lobby joueur avec respect
-  allowRename / allowTeamChange (API déjà présente).
+- Si un autre service réutilise encore des labels `Host(...)` identiques, appliquer le même principe
+  (une seule source de vérité par host) ou renommer les routeurs côté labels.
 
-## Références fichiers utiles pour reprendre
+## Références
 
-- `webserver/src/http/routesParty.ts`, `domain/store.ts`, `realtime/socket.ts`
-- `webserver/client/src/App.tsx`
-- `webserver/Dockerfile`, `docker-compose.yml`
+- `docker-compose.yml`, `scripts/deploy-docker-stack.sh`, logs Traefik (*Router defined multiple times*).
