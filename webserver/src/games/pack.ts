@@ -11,11 +11,32 @@ const questionSchema = z.object({
   points: z.number().int().positive(),
 });
 
-const roundSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1),
-  questions: z.array(questionSchema).min(1),
-});
+export const quizRoundSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    questions: z.array(questionSchema).min(1),
+  })
+  .strict();
+
+export const videoRoundSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    videoUrl: z.string().min(1),
+  })
+  .strict();
+
+export const roundSchema = z.union([quizRoundSchema, videoRoundSchema]);
+
+export type QuizRound = z.infer<typeof quizRoundSchema>;
+export type VideoRound = z.infer<typeof videoRoundSchema>;
+export type PackRound = z.infer<typeof roundSchema>;
+
+/** * Distinguishes a video segment from a buzzer quiz segment inside a pack JSON. */
+export function isVideoRound(r: PackRound): r is VideoRound {
+  return typeof (r as VideoRound).videoUrl === "string";
+}
 
 export const quizPackSchema = z.object({
   id: z.string().min(1),
@@ -25,7 +46,6 @@ export const quizPackSchema = z.object({
 });
 
 export type QuizPack = z.infer<typeof quizPackSchema>;
-
 
 /** * Parses and validates a quiz JSON pack from disk. */
 export async function loadQuizPackFile(
@@ -37,6 +57,7 @@ export async function loadQuizPackFile(
   const json: unknown = JSON.parse(raw);
   const parsed = quizPackSchema.parse(json);
   for (const r of parsed.rounds) {
+    if (isVideoRound(r)) continue;
     for (const q of r.questions) {
       if (q.correctIndex >= q.choices.length) {
         throw new Error(`Question ${q.id}: correctIndex out of bounds`);

@@ -1,6 +1,12 @@
 import type { QuizPack } from "../games/pack.js";
+import { isVideoRound } from "../games/pack.js";
 import { publicSnapshotForParty } from "./partyLogic.js";
-import type { Party, PartyGameBoardSurface, PartyPublicSnapshot } from "./types.js";
+import type {
+  Party,
+  PartyGameBoardQuiz,
+  PartyGameBoardSurface,
+  PartyPublicSnapshot,
+} from "./types.js";
 
 /** * Finds a scanned pack whose `QuizPack.id` matches `party.loadedPackId`. */
 export function quizPackFromLoadedId(
@@ -31,10 +37,25 @@ function deriveGameBoard(
     ri >= pack.rounds.length
   )
     return null;
+
   const round = pack.rounds[ri];
+
+  if (isVideoRound(round)) {
+    return {
+      kind: "video",
+      packTitle: pack.title,
+      roundIndex: ri,
+      roundTitle: round.title,
+      roundNumberHuman: ri + 1,
+      videoUrl: round.videoUrl,
+      replaySerial: party.videoReplaySerial,
+    };
+  }
+
   if (qi >= round.questions.length) return null;
   const question = round.questions[qi];
-  const surface: PartyGameBoardSurface = {
+  const surface: PartyGameBoardQuiz = {
+    kind: "quiz",
     packTitle: pack.title,
     roundIndex: ri,
     roundTitle: round.title,

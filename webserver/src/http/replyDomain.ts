@@ -30,6 +30,9 @@ export function replyDomain(reply: FastifyReply, err: unknown): FastifyReply {
     UNAUTHORIZED: 401,
     JOIN_CODE_EXHAUSTED: 503,
     PACK_NOT_FOUND: 404,
+    BAD_ROUND: 400,
+    BAD_QUESTION: 400,
+    ROUND_EXHAUSTED: 409,
   };
 
   const status = map[code] ?? 400;

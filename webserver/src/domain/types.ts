@@ -42,10 +42,13 @@ export interface Party {
   currentRoundIndex: number | null;
   currentQuestionIndex: number | null;
   loadedPackId: string | null;
+  /** * Increments when the host replays a video round (“next” on `kind: video`). */
+  videoReplaySerial: number;
 }
 
-/** * Current-round question surfaced to clients (host payload may include scoring hints). */
-export interface PartyGameBoardSurface {
+/** * Buzzer-visible quiz surface (`kind: quiz`). */
+export interface PartyGameBoardQuiz {
+  kind: "quiz";
   packTitle: string;
   roundIndex: number;
   roundTitle: string;
@@ -57,6 +60,19 @@ export interface PartyGameBoardSurface {
   /** * Present only when the snapshot is assembled for an authenticated host. */
   correctChoiceIndex?: number;
 }
+
+/** * Video segment surface; `replaySerial` forces clients to remount the `<video>` element. */
+export interface PartyGameBoardVideo {
+  kind: "video";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  videoUrl: string;
+  replaySerial: number;
+}
+
+export type PartyGameBoardSurface = PartyGameBoardQuiz | PartyGameBoardVideo;
 
 export interface PartyPublicSnapshot {
   id: string;

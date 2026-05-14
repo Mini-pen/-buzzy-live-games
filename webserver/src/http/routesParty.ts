@@ -10,7 +10,7 @@ import { z } from "zod";
 import type { AppConfig } from "../config.js";
 import type { PartyStore } from "../domain/store.js";
 import type { Party } from "../domain/types.js";
-import { partySnapshotWithGame } from "../domain/partySnapshotPresenter.js";
+import { partySnapshotWithGame, quizPackFromLoadedId } from "../domain/partySnapshotPresenter.js";
 import type { QuizPack } from "../games/pack.js";
 import { readBearer } from "./bearer.js";
 import { replyDomain } from "./replyDomain.js";
@@ -305,6 +305,25 @@ export async function registerPartyRoutes(
   );
 
   /* ----- Host (admin token) ----- */
+
+  app.post<{ Params: { partyId: string } }>(
+    "/api/parties/:partyId/host/cue/next",
+    async (req, reply) => {
+      try {
+        const party = requireParty(store, req.params.partyId);
+        const token = readBearer(req.headers.authorization);
+        if (!store.verifyAdminToken(party, token))
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        const loaded = quizPackFromLoadedId(packs, party.loadedPackId);
+        if (!loaded)
+          throw Object.assign(new Error("PACK_NOT_FOUND"), { code: "PACK_NOT_FOUND" });
+        store.adminAdvanceCue(party, loaded);
+        return snapHost(party);
+      } catch (err) {
+        return replyDomain(reply, err);
+      }
+    },
+  );
 
   app.post<{ Params: { partyId: string } }>(
     "/api/parties/:partyId/host/round/start",

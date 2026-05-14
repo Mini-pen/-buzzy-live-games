@@ -4,8 +4,9 @@ import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams 
 import { QRCodeSVG } from "qrcode.react";
 import { io, type Socket } from "socket.io-client";
 
-/** * Payload aligned with `PartyPublicSnapshot.gameBoard` on the server. */
-interface PartyGameBoardSurface {
+/** * Quiz surface from `PartyPublicSnapshot.gameBoard`. */
+interface PartyGameBoardQuiz {
+  kind: "quiz";
   packTitle: string;
   roundIndex: number;
   roundTitle: string;
@@ -16,6 +17,19 @@ interface PartyGameBoardSurface {
   points: number;
   correctChoiceIndex?: number;
 }
+
+/** * Video clip surface; `replaySerial` changes restart playback on clients. */
+interface PartyGameBoardVideo {
+  kind: "video";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  videoUrl: string;
+  replaySerial: number;
+}
+
+type PartyGameBoardSurface = PartyGameBoardQuiz | PartyGameBoardVideo;
 
 interface PartySnapshot {
   id: string;
@@ -539,14 +553,42 @@ function PlayersPreview(props: { snap: PartySnapshot }): JSX.Element {
   );
 }
 
-/** * Displays the quiz prompt from `gameBoard`; host view may reveal the keyed correct choice. */
+/** * Displays quiz prompt or video from `gameBoard`; host may reveal the keyed correct choice on quiz. */
 function GameBoardPanel(props: {
   board: PartyGameBoardSurface | null;
   partyState: string;
   revealCorrect: boolean;
 }): JSX.Element | null {
   const { board, partyState, revealCorrect } = props;
-  if (board !== null) {
+  if (board !== null && board.kind === "video") {
+    return (
+      <section
+        style={{
+          marginTop: 14,
+          padding: 14,
+          border: "1px solid #ccc",
+          borderRadius: 8,
+          background: "#fafafa",
+        }}
+      >
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Zone de jeu · vidéo</h2>
+        <p style={{ margin: "0 0 10px", fontSize: 13, opacity: 0.85 }}>
+          {board.packTitle} · Manche {board.roundNumberHuman} — {board.roundTitle}
+        </p>
+        <video
+          key={board.replaySerial}
+          controls
+          playsInline
+          preload="metadata"
+          style={{ width: "100%", maxHeight: 420, borderRadius: 6, background: "#111" }}
+          src={board.videoUrl}
+        >
+          Lecture vidéo non supportée par ce navigateur.
+        </video>
+      </section>
+    );
+  }
+  if (board !== null && board.kind === "quiz") {
     const ci = board.correctChoiceIndex;
     const correctText =
       revealCorrect &&
@@ -849,7 +891,11 @@ function Play(): JSX.Element {
       <section style={{ marginTop: 14 }}>
         <h2>Manche / lobby</h2>
         {(snap.gameBoard ?? null) === null ? (
-          <p>L’animateur diffuse les questions depuis cette session.</p>
+          <p>L’animateur diffuse le contenu depuis cette session.</p>
+        ) : snap.gameBoard.kind === "video" ? (
+          <p style={{ opacity: 0.8 }}>
+            Regardez la vidéo ; l’animateur peut la relancer avec « Question suivante » depuis son tableau.
+          </p>
         ) : (
           <p style={{ opacity: 0.8 }}>Répondez avec le buzzer lorsque celui‑ci est ouvert.</p>
         )}
@@ -1065,6 +1111,16 @@ function Admin(): JSX.Element {
     [callHostSnapshot, hostBasePath],
   );
 
+  const onHostCueNext = useCallback(async (): Promise<void> => {
+    setErr(null);
+    try {
+      const p = await callHostSnapshot(`${hostBasePath}/host/cue/next`, "POST", {});
+      setSnap(p);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }, [callHostSnapshot, hostBasePath]);
+
   const applyPackMutation = useCallback(async (): Promise<void> => {
     setErr(null);
     try {
@@ -1207,6 +1263,9 @@ function Admin(): JSX.Element {
         </button>
         <button type="button" onClick={() => void onHostBuzzWindow(false)}>
           Fermer buzzer &amp; purge file
+        </button>
+        <button type="button" onClick={() => void onHostCueNext()}>
+          Question suivante / rejouer la vidéo
         </button>
       </section>
 

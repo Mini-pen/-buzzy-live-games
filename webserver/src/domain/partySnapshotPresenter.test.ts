@@ -25,6 +25,19 @@ const demoPack: QuizPack = {
   ],
 };
 
+const videoRoundPack: QuizPack = {
+  id: "demo-video-v1",
+  title: "Vidéo",
+  version: 1,
+  rounds: [
+    {
+      id: "v1",
+      title: "Clip",
+      videoUrl: "https://example.com/x.webm",
+    },
+  ],
+};
+
 function partyStub(over: Partial<Party>): Party {
   const base: Party = {
     id: "party-uuid",
@@ -46,14 +59,18 @@ function partyStub(over: Partial<Party>): Party {
     currentRoundIndex: null,
     currentQuestionIndex: null,
     loadedPackId: null,
+    videoReplaySerial: 0,
   };
   return { ...base, ...over };
 }
 
 describe("partySnapshotWithGame", () => {
-  const packs = new Map([["example", demoPack]]);
+  const packs = new Map<string, QuizPack>([
+    ["example", demoPack],
+    ["vid", videoRoundPack],
+  ]);
 
-  test("adds gameBoard for host only with correct index", () => {
+  test("quiz host snapshot includes correct index", () => {
     const party = partyStub({
       state: "round_active",
       currentRoundIndex: 0,
@@ -63,9 +80,29 @@ describe("partySnapshotWithGame", () => {
     });
     const hostSnap = partySnapshotWithGame(party, packs, "host");
     expect(hostSnap.gameBoard).not.toBeNull();
-    expect(hostSnap.gameBoard?.correctChoiceIndex).toBe(1);
+    expect(hostSnap.gameBoard?.kind).toBe("quiz");
+    if (hostSnap.gameBoard?.kind !== "quiz") throw new Error("expected quiz");
+    expect(hostSnap.gameBoard.correctChoiceIndex).toBe(1);
     const playSnap = partySnapshotWithGame(party, packs, "player");
-    expect(playSnap.gameBoard?.correctChoiceIndex).toBeUndefined();
+    expect(playSnap.gameBoard?.kind).toBe("quiz");
+    if (playSnap.gameBoard?.kind !== "quiz") throw new Error("expected quiz");
+    expect(playSnap.gameBoard.correctChoiceIndex).toBeUndefined();
+  });
+
+  test("video round exposes replay serial", () => {
+    const party = partyStub({
+      state: "round_active",
+      currentRoundIndex: 0,
+      currentQuestionIndex: 0,
+      loadedPackId: "demo-video-v1",
+      hasStartedRound: true,
+      videoReplaySerial: 3,
+    });
+    const s = partySnapshotWithGame(party, packs, "player");
+    expect(s.gameBoard?.kind).toBe("video");
+    if (s.gameBoard?.kind !== "video") throw new Error("expected video");
+    expect(s.gameBoard.replaySerial).toBe(3);
+    expect(s.gameBoard.videoUrl).toContain("example.com");
   });
 
   test("omits gameBoard when no pack is loaded", () => {

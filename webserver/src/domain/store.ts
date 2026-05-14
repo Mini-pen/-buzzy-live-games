@@ -2,6 +2,8 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 
 import { nanoid } from "nanoid";
 
+import type { QuizPack } from "../games/pack.js";
+import { isVideoRound } from "../games/pack.js";
 import { randomJoinCode, randomSecretHex } from "./codes.js";
 import { evaluateJoin, normalizeTeamChoice, publicSnapshotForParty } from "./partyLogic.js";
 import type {
@@ -104,6 +106,7 @@ export class PartyStore {
       currentRoundIndex: null,
       currentQuestionIndex: null,
       loadedPackId: null,
+      videoReplaySerial: 0,
     };
     this.parties.set(party.id, party);
     this.indexByJoinCode.set(joinCode, party.id);
@@ -298,6 +301,7 @@ export class PartyStore {
     party.state = "round_active";
     party.currentRoundIndex = nextRound;
     party.currentQuestionIndex = 0;
+    party.videoReplaySerial = 0;
     party.hasStartedRound = true;
     party.buzzWindowOpen = false;
     party.buzzOrder = [];
@@ -311,6 +315,43 @@ export class PartyStore {
     party.buzzOrder = [];
     this.touch(party);
     this.broadcast(party);
+  }
+
+  /** * Host “next cue”: next quiz question in the round, or replay current video round. */
+  adminAdvanceCue(party: Party, pack: QuizPack): void {
+    if (party.state !== "round_active") {
+      throw Object.assign(new Error("BAD_PHASE"), { code: "BAD_PHASE" });
+    }
+    const ri = party.currentRoundIndex;
+    if (ri === null || ri < 0 || ri >= pack.rounds.length) {
+      throw Object.assign(new Error("BAD_ROUND"), { code: "BAD_ROUND" });
+    }
+    const round = pack.rounds[ri];
+    if (isVideoRound(round)) {
+      party.videoReplaySerial += 1;
+      party.buzzWindowOpen = false;
+      party.buzzOrder = [];
+      this.touch(party);
+      this.broadcast(party);
+      return;
+    }
+    const qi = party.currentQuestionIndex;
+    if (qi === null || qi < 0) {
+      throw Object.assign(new Error("BAD_QUESTION"), { code: "BAD_QUESTION" });
+    }
+    const nextQ = qi + 1;
+    if (nextQ < round.questions.length) {
+      party.currentQuestionIndex = nextQ;
+      party.buzzWindowOpen = false;
+      party.buzzOrder = [];
+      this.touch(party);
+      this.broadcast(party);
+      return;
+    }
+    throw Object.assign(
+      new Error("Fin des questions de cette manche — passez à la suivante ou mettez en pause."),
+      { code: "ROUND_EXHAUSTED" },
+    );
   }
 
   adminAwardPoints(party: Party, playerId: string, delta: number): void {
