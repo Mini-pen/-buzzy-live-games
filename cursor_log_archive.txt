@@ -36,3 +36,11 @@ Session 2026-05-14 — Page Rejoindre : choix son buzzer
   `buzzSoundKey` envoyé sur `POST /api/parties/:id/join` ; bouton « Écouter » (préécoute).
 - Fichiers : `webserver/client/src/App.tsx`, `webserver/client/src/styles/buzzy.css`.
 - Commit `f5cf035` sur `main`.
+
+================================================================================
+Session 2026-05-14 — Pack « guess by color » : image + oral (sans QCM)
+================================================================================
+- Nouveau round JSON `kind: "image_buzz"` (slides avec `imageUrl`, `prompt` optionnel) ;
+  flux identique aux questions libres : buzz puis réponse orale, pas de choix multiples.
+- `games/guess_by_color/quiz_with_images.json` migré (titre neutre, série d’images).
+- Commit `4c248fa` sur `main`.
