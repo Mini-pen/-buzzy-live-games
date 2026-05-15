@@ -1,388 +1,160 @@
-# Buzzy redesign · phase 4 (Admin — tableau animateur)
+# Buzzy redesign · patch · correctifs thème sombre
 
-Prérequis : **phases 1, 2 & 3 mergées**.
+Trois points où le thème clair fuit encore. Patch minimal et sûr :
 
-Refonte de `/party/:id/admin` :
-- **Layout 2 colonnes** sur desktop : stage à gauche, sidebar live à droite (file, scores, chat).
-- **Hero card** : code joueurs en 88 px jaune, lien de partage en mono,
-  QR sur fond blanc à droite.
-- **Pack picker** dans une card propre.
-- **Barre de contrôles sticky** en bas du stage (toujours visible quand
-  tu scrolles dans la sidebar).
-- **Scoreboard** trié par score décroissant, avec rang, équipe, input de
-  delta + bouton compact dans une seule ligne.
-- **File de buzz** en aside (rang #1 mis en avant en jaune).
-- **Chat aside** : lecture + envoi en tant qu'animateur, format compact.
-
-Aucune logique modifiée — état, sockets, callbacks REST, bootstrap, JWT,
-purge des jetons, tout est strictement préservé.
+| Bug | Fix |
+|-----|-----|
+| Tuiles avatars en bleu pâle / blanc cassé avec label invisible | Nouvelle classe `.bz-avatar-pick` + retrait des inline-styles dans `App.tsx` |
+| Bordure `#ccc` autour des images d'avatars | Variable CSS `--bz-line-strong` à la place |
+| `<option>` natives en blanc dans certains navigateurs | `color-scheme: dark` au niveau racine + style explicite des `<option>` |
+| (Bonus) Iframes externes (YouTube, sites) qui flashent en blanc à l'ouverture | Cadre + fond sombre derrière les `iframe` en attendant le chargement |
 
 ## Branche suggérée
 
 ```bash
-git checkout -b redesign/buzzy-admin
+git checkout -b fix/dark-leftovers
 ```
 
-## Fichiers
+## 1. Append en bas de `webserver/client/src/styles/buzzy.css`
 
-- **Remplace** `webserver/client/src/styles/buzzy.css` *(ajoute la
-  section "Phase 4 — Admin (host)" à la fin)*
-- **Modifie** `webserver/client/src/App.tsx` :
-  1. la fonction `Shell` (1 ligne d'inline-style → className + nouveau
-     prop `wide` optionnel)
-  2. le `return` final de la fonction `Admin` (≈ lignes 1257-1393)
+```css
+/* ── Patch · résidus de thème clair ────────────────────────────── */
 
-Le state, les `useEffect`, les `useCallback` et toutes les fonctions
-`onHost*` de `Admin` **ne changent pas**.
+/* Indique au navigateur que tout est en sombre → scrollbars,
+   options de <select>, date pickers, autofill, etc., s'adaptent. */
+:root { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
 
----
+/* Filet de sécurité sur les options de select (Firefox + Safari) */
+.bz-app select option,
+.bz-app select optgroup {
+  background-color: var(--bz-surface-2);
+  color: var(--bz-text);
+}
 
-## 1. Mets à jour `Shell` (1 inline-style remplacé + prop `wide`)
+/* Avatar — cercle autour de l'image */
+.bz-app .bz-avatar-img {
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--bz-line-strong);
+}
 
-Repère la fonction `Shell`. Le wrapper interne avec inline-style doit
-devenir une `className`, et `Shell` accepte un prop `wide` optionnel :
+/* Avatar picker — tuiles sélectionnables (étape pseudo) */
+.bz-app .bz-avatar-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--bz-line);
+  background: var(--bz-surface);
+  color: var(--bz-text);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+  box-sizing: border-box;
+  font-family: var(--bz-f-body);
+  font-weight: 500;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+  height: auto;
+}
+.bz-app .bz-avatar-pick:hover {
+  background: var(--bz-surface-2);
+  border-color: var(--bz-line-strong);
+}
+.bz-app .bz-avatar-pick[aria-checked="true"] {
+  background: var(--bz-accent-soft);
+  border-color: var(--bz-accent);
+  color: var(--bz-text-strong);
+  box-shadow: 0 0 0 1px var(--bz-accent) inset;
+}
+.bz-app .bz-avatar-pick[aria-checked="true"] .bz-avatar-img {
+  border-color: var(--bz-accent);
+}
+.bz-app .bz-avatar-pick:focus-visible {
+  outline: 2px solid var(--bz-accent);
+  outline-offset: 2px;
+}
+
+/* Iframes externes — cadre sombre derrière (sans toucher au contenu cross-origin) */
+.bz-app .bz-board-embed-wrap {
+  background: var(--bz-bg-2);
+}
+.bz-app .bz-board-embed-wrap iframe {
+  background: var(--bz-bg-2);
+}
+```
+
+## 2. Modifs ciblées dans `webserver/client/src/App.tsx`
+
+### a. `AvatarFigure` — remplace l'inline-style par la classe
+
+**Ligne ~111-126.** Cherche :
 
 ```tsx
-function Shell(props: {
-  title: string;
-  children: React.ReactNode;
-  wide?: boolean;
-}): JSX.Element {
+function AvatarFigure(props: { src: string; sizePx: number }): JSX.Element {
   return (
-    <div className="bz-app">
-      <div
-        className={`bz-shell-container${props.wide ? " bz-shell--wide" : ""}`}
-      >
-        <header className="bz-header">
-          <Link to="/" className="bz-logo" style={{ fontSize: 24 }}>
-            <span>buzzy</span>
-            <span className="bz-logo-dot" />
-          </Link>
-          <span className="bz-page-title">{props.title}</span>
-          <nav>
-            <Link to="/">Accueil</Link>
-            <Link to="/create">Créer</Link>
-            <Link to="/join">Rejoindre</Link>
-          </nav>
-        </header>
-        {props.children}
-      </div>
-    </div>
+    <img
+      src={props.src}
+      alt=""
+      width={props.sizePx}
+      height={props.sizePx}
+      decoding="async"
+      style={{
+        flexShrink: 0,
+        objectFit: "cover",
+        borderRadius: "50%",
+        border: "1px solid #ccc",
+      }}
+    />
   );
 }
 ```
 
-C'est tout : la valeur par défaut (`undefined` / `false`) garde l'ancien
-max-width 880 px. Sur Admin on passera `wide`.
-
----
-
-## 2. Remplace le `return (...)` final de `Admin`
-
-Repère, à la toute fin de la fonction `Admin`, le `return (` qui suit la
-ligne `const joinUrl = ...`. Tout le bloc jusqu'à `</Shell>);` se
-remplace par celui-ci. Garde la `}` de fin de fonction.
+Remplace par :
 
 ```tsx
-  const joinUrl = `${window.location.origin}/join?code=${encodeURIComponent(snap.joinCode)}`;
-
-  const sortedPlayers = [...snap.players].sort((a, b) => b.score - a.score);
-
+function AvatarFigure(props: { src: string; sizePx: number }): JSX.Element {
   return (
-    <Shell title={`Animateur · ${snap.joinCode}`} wide>
-      <div className="bz-host-layout">
-        <main className="bz-host-stage">
-          {/* Hero — code, share, QR */}
-          <section className="bz-host-hero">
-            <div className="bz-host-hero-info">
-              <span className="bz-eyebrow">code joueurs</span>
-              <div className="bz-host-code">{snap.joinCode}</div>
-              <div className="bz-host-join">
-                {window.location.host}/join?code=<strong>{snap.joinCode}</strong>
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span
-                  className={`bz-pill ${
-                    snap.state === "round_active" ? "bz-live" : ""
-                  }`}
-                >
-                  {snap.state === "round_active" ? (
-                    <span className="bz-dot" />
-                  ) : null}
-                  {snap.state}
-                </span>
-                <span className="bz-pill">
-                  {snap.players.length} joueur
-                  {snap.players.length === 1 ? "" : "s"}
-                </span>
-                {snap.buzzWindowOpen ? (
-                  <span className="bz-pill bz-good">
-                    <span className="bz-dot" />
-                    buzzer ouvert
-                  </span>
-                ) : null}
-              </div>
-            </div>
-            <div className="bz-host-hero-qr">
-              <QRCodeSVG
-                value={joinUrl}
-                size={160}
-                level="M"
-                includeMargin
-                aria-label="QR code rejoindre la partie"
-              />
-              <span className="bz-host-qr-cap">scanne pour rejoindre</span>
-            </div>
-          </section>
-
-          {err ? <pre className="bz-err">{err}</pre> : null}
-
-          {/* Game board — same component, with revealCorrect for host */}
-          <GameBoardPanel
-            board={snap.gameBoard ?? null}
-            partyState={snap.state}
-            revealCorrect
-          />
-
-          {/* Pack picker */}
-          <section className="bz-host-pack">
-            <h2>Pack quiz</h2>
-            <div className="bz-host-pack-row">
-              <select
-                value={basename}
-                onChange={(e2) => setBasename(e2.target.value)}
-              >
-                {packsList.map((pk) => (
-                  <option key={pk.basename} value={pk.basename}>
-                    {pk.title} ({pk.roundCount ?? 0} manches)
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => void applyPackMutation()}
-              >
-                Charger
-              </button>
-            </div>
-          </section>
-
-          {/* Sticky controls */}
-          <div className="bz-host-controls">
-            <button
-              type="button"
-              className="bz-primary"
-              onClick={() => void onHostRoundStart()}
-            >
-              ▶ Lancer la manche
-            </button>
-            <button type="button" onClick={() => void onHostRoundPause()}>
-              ⏸ Pause (lobby)
-            </button>
-            <button
-              type="button"
-              onClick={() => void onHostBuzzWindow(true)}
-            >
-              🔔 Ouvrir buzzer
-            </button>
-            <button
-              type="button"
-              onClick={() => void onHostBuzzWindow(false)}
-            >
-              ⏹ Fermer & purger
-            </button>
-            <button type="button" onClick={() => void onHostCueNext()}>
-              Question suivante →
-            </button>
-          </div>
-        </main>
-
-        <aside className="bz-host-aside">
-          {/* Buzz queue */}
-          <section className="bz-host-section">
-            <h2>
-              File de buzz
-              {snap.buzzOrder.length > 0 ? (
-                <span className="bz-pill bz-live">
-                  <span className="bz-dot" />
-                  live
-                </span>
-              ) : null}
-            </h2>
-            {snap.buzzOrder.length === 0 ? (
-              <p className="bz-muted" style={{ margin: 0, fontSize: 12 }}>
-                Vide.
-              </p>
-            ) : (
-              <ol className="bz-host-queue-list">
-                {snap.buzzOrder.map((idBuzz2, ix) => {
-                  const pw = snap.players.find((zz) => zz.id === idBuzz2);
-                  return (
-                    <li key={`${idBuzz2}-${ix}`}>
-                      <span className="bz-rank">{ix + 1}</span>
-                      <span className="bz-name">
-                        {pw?.displayName ?? idBuzz2}
-                      </span>
-                      {pw?.teamId != null ? (
-                        <span className="bz-host-team">éq. {pw.teamId}</span>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </section>
-
-          {/* Scoreboard */}
-          <section className="bz-host-section">
-            <h2>Scores</h2>
-            <ul className="bz-host-scores">
-              {sortedPlayers.map((pl2, idx) => (
-                <li key={pl2.id} className="bz-host-score-row">
-                  <span className="bz-host-rank">{idx + 1}</span>
-                  <span className="bz-host-name">
-                    {pl2.displayName}
-                    {pl2.teamId != null ? (
-                      <span className="bz-host-team">éq. {pl2.teamId}</span>
-                    ) : null}
-                  </span>
-                  <span className="bz-host-score-value">{pl2.score}</span>
-                  <span className="bz-host-delta">
-                    <input
-                      value={deltaById[pl2.id] ?? ""}
-                      placeholder="±"
-                      onChange={(ev) =>
-                        setDeltaById((m) => ({
-                          ...m,
-                          [pl2.id]: ev.target.value,
-                        }))
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void onDeltaScoreApply(pl2.id)}
-                    >
-                      OK
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* Chat */}
-          <section className="bz-host-section bz-chat">
-            <h2>Chat</h2>
-            <ul className="bz-chat-list">
-              {snap.chatTail.length === 0 ? (
-                <li
-                  className="bz-chat-row bz-muted"
-                  style={{ fontSize: 12 }}
-                >
-                  Aucun message pour l'instant.
-                </li>
-              ) : (
-                snap.chatTail.slice(-80).map((m) => (
-                  <li key={m.id} className="bz-chat-row">
-                    <strong>{m.displayName}</strong>
-                    <span>{m.text}</span>
-                  </li>
-                ))
-              )}
-            </ul>
-            <div className="bz-chat-input">
-              <textarea
-                rows={2}
-                value={hostChat}
-                placeholder="Message animateur…"
-                onChange={(evh) => setHostChat(evh.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" || e.shiftKey) return;
-                  e.preventDefault();
-                  void onHostChatSend(e.currentTarget.value);
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => void onHostChatSend()}
-              >
-                Publier
-              </button>
-            </div>
-          </section>
-        </aside>
-      </div>
-    </Shell>
+    <img
+      className="bz-avatar-img"
+      src={props.src}
+      alt=""
+      width={props.sizePx}
+      height={props.sizePx}
+      decoding="async"
+    />
   );
 }
 ```
 
-⚠️ La `}` fermante existe déjà après `</Shell>);` — vérifie qu'elle est
-bien préservée pour clore la fonction `Admin`.
+### b. Tuile dans la grille de choix d'avatar
 
----
-
-## Petits raffinements optionnels sur les early returns
-
-Tu peux aussi améliorer les écrans d'attente d'`Admin` (loading,
-unavailable, missing token). Purement cosmétique :
+**Ligne ~750-777.** Cherche le `<button>` à l'intérieur de
+`avatarsLib.avatars.map((a) => (`. Remplace **tout le `<button>`** par :
 
 ```tsx
-  if (bearer === "")
-    return (
-      <Shell title="Animateur">
-        <div className="bz-card" style={{ marginTop: 24 }}>
-          <p style={{ marginTop: 0 }}>
-            Jeton animateur absent ou lien incomplet. Rouvrir le lien
-            après création.
-          </p>
-          <button type="button" className="bz-primary" onClick={() => nav("/create")}>
-            Créer une nouvelle partie
-          </button>
-        </div>
-      </Shell>
-    );
-
-  if (adminBootstrap === "loading")
-    return (
-      <Shell title="Animateur">
-        <p className="bz-muted">Chargement…</p>
-      </Shell>
-    );
-
-  if (adminBootstrap === "unavailable")
-    return (
-      <Shell title="Animateur">
-        <div className="bz-card" style={{ marginTop: 24 }}>
-          <h2 style={{ marginTop: 0, fontSize: 22 }}>Partie indisponible</h2>
-          <p>
-            Cette partie n'existe plus côté serveur (inactivité ou
-            redémarrage). Le lien "Reprendre" sur l'accueil ne peut pas
-            restaurer une partie effacée.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              purgeAdminSessionForPartyRouteId(pid);
-              setToken(null);
-              nav("/", { replace: true });
-            }}
-          >
-            Retour à l'accueil
-          </button>
-        </div>
-      </Shell>
-    );
-
-  if (snap === null)
-    return (
-      <Shell title="Animateur">
-        <p className="bz-muted">Synchronisation…</p>
-      </Shell>
-    );
+                  <button
+                    key={a.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={avatarKeyChosen === a.key}
+                    aria-label={a.label}
+                    className="bz-avatar-pick"
+                    onClick={() => setAvatarKeyChosen(a.key)}
+                  >
+                    <AvatarFigure src={a.url} sizePx={56} />
+                    <span>{a.label}</span>
+                  </button>
 ```
 
----
+C'est-à-dire : supprime entièrement le bloc
+`style={{ display: "flex", flexDirection: "column", ... }}` (≈ 17 lignes
+d'inline-style). La classe `bz-avatar-pick` gère tout, et l'état
+sélectionné est piloté par `aria-checked` que tu avais déjà.
 
 ## Vérifier en local
 
@@ -391,21 +163,32 @@ cd webserver
 npm run dev
 ```
 
-1. Va sur `/create`, crée une partie → tu arrives sur `/party/:id/admin`.
-2. **Hero** : code en jaune géant, QR à droite sur fond blanc, pills d'état.
-3. Ouvre un 2e onglet, scanne ou tape le code → rejoins comme joueur.
-4. Le **scoreboard** dans la sidebar affiche maintenant le joueur (équipe en éq. X mono).
-5. Lance la manche, **charge un pack**, ouvre le buzzer.
-6. Le joueur clique BUZZ → sa ligne apparaît dans la **file de buzz aside** (rang #1 en jaune).
-7. Saisis `+2` dans la case delta → clique OK → score mis à jour.
-8. Écris un message dans le **chat** → il apparaît côté joueur.
-9. Scrolle dans la page : la barre de contrôles reste **collée en bas**.
+1. Va sur `/join`, saisis un code valide, passe à l'étape pseudo/avatar.
+   - Les tuiles d'avatars doivent maintenant être en **fond sombre**
+     avec label crème lisible. La tuile sélectionnée est entourée de
+     jaune Buzzy.
+   - L'image d'avatar a un cercle gris foncé (pas blanc).
+2. Ouvre n'importe quel `<select>` (pack quiz côté Admin, modal "Ajouter
+   manche"). Les options doivent être sur **fond sombre** (et plus en
+   blanc dans Firefox/Safari).
+3. Sur l'Admin, ajoute une manche YouTube ou iframe et lance-la : pendant
+   le chargement, **le cadre derrière l'iframe est sombre** (avant ça
+   flashait en blanc).
 
-## Commit & push
+## Commit
 
 ```bash
-git add webserver/client/src/styles/buzzy.css \
-        webserver/client/src/App.tsx
-git commit -m "feat(ui): redesign Admin — 2-col layout, hero QR, sticky controls, live aside"
-git push -u origin redesign/buzzy-admin
+git add webserver/client/src/styles/buzzy.css webserver/client/src/App.tsx
+git commit -m "fix(ui): dark-theme leftovers — avatar picker, select options, iframe backdrop"
+git push -u origin fix/dark-leftovers
 ```
+
+## Note
+
+- L'**intérieur** des iframes (page YouTube, site externe…) reste sous le
+  contrôle du site distant — c'est cross-origin, on ne peut pas le
+  thématiser. Le patch ci-dessus s'occupe du cadre **autour** pour éviter
+  le flash blanc à l'ouverture.
+- Si tu vois d'autres zones spécifiques en clair, envoie-moi une capture
+  ou pointe-moi la route + le nom du composant et je fais un nouveau
+  patch ciblé.
