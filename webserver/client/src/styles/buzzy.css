@@ -1381,3 +1381,72 @@ html, body {
   z-index: 100;
 }
 
+/* ── Patch · résidus de thème clair ────────────────────────────── */
+
+/* Indique au navigateur que tout est en sombre → scrollbars,
+   options de <select>, date pickers, autofill, etc., s'adaptent. */
+:root { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+
+/* Filet de sécurité sur les options de select (Firefox + Safari) */
+.bz-app select option,
+.bz-app select optgroup {
+  background-color: var(--bz-surface-2);
+  color: var(--bz-text);
+}
+
+/* Avatar — cercle autour de l'image */
+.bz-app .bz-avatar-img {
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--bz-line-strong);
+}
+
+/* Avatar picker — tuiles sélectionnables (étape pseudo) */
+.bz-app .bz-avatar-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--bz-line);
+  background: var(--bz-surface);
+  color: var(--bz-text);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+  box-sizing: border-box;
+  font-family: var(--bz-f-body);
+  font-weight: 500;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+  height: auto;
+}
+.bz-app .bz-avatar-pick:hover {
+  background: var(--bz-surface-2);
+  border-color: var(--bz-line-strong);
+}
+.bz-app .bz-avatar-pick[aria-checked="true"] {
+  background: var(--bz-accent-soft);
+  border-color: var(--bz-accent);
+  color: var(--bz-text-strong);
+  box-shadow: 0 0 0 1px var(--bz-accent) inset;
+}
+.bz-app .bz-avatar-pick[aria-checked="true"] .bz-avatar-img {
+  border-color: var(--bz-accent);
+}
+.bz-app .bz-avatar-pick:focus-visible {
+  outline: 2px solid var(--bz-accent);
+  outline-offset: 2px;
+}
+
+/* Iframes externes — cadre sombre derrière (sans toucher au contenu cross-origin) */
+.bz-app .bz-board-embed-wrap {
+  background: var(--bz-bg-2);
+}
+.bz-app .bz-board-embed-wrap iframe {
+  background: var(--bz-bg-2);
+}
+

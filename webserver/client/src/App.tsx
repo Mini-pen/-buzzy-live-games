@@ -111,17 +111,12 @@ function mancheKindShort(kind: MancheCatalogItemView["kind"]): string {
 function AvatarFigure(props: { src: string; sizePx: number }): JSX.Element {
   return (
     <img
+      className="bz-avatar-img"
       src={props.src}
       alt=""
       width={props.sizePx}
       height={props.sizePx}
       decoding="async"
-      style={{
-        flexShrink: 0,
-        objectFit: "cover",
-        borderRadius: "50%",
-        border: "1px solid #ccc",
-      }}
     />
   );
 }
@@ -753,23 +748,8 @@ function Join(): JSX.Element {
                     role="radio"
                     aria-checked={avatarKeyChosen === a.key}
                     aria-label={a.label}
+                    className="bz-avatar-pick"
                     onClick={() => setAvatarKeyChosen(a.key)}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: 10,
-                      borderRadius: 10,
-                      border:
-                        avatarKeyChosen === a.key ? "3px solid #2874a6" : "1px solid #ccc",
-                      background: avatarKeyChosen === a.key ? "#f0f7ff" : "#fafafa",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      lineHeight: 1.25,
-                      textAlign: "center",
-                      boxSizing: "border-box",
-                    }}
                   >
                     <AvatarFigure src={a.url} sizePx={56} />
                     <span>{a.label}</span>
