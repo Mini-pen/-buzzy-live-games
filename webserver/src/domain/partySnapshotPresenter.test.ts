@@ -38,6 +38,38 @@ const videoRoundPack: QuizPack = {
   ],
 };
 
+const freeBuzzPack: QuizPack = {
+  id: "fb-v1",
+  title: "Free",
+  version: 1,
+  rounds: [
+    {
+      kind: "free_buzz",
+      id: "fr",
+      title: "Oral",
+      playerPrompt: "Buzz",
+      plannedQuestionCount: 3,
+    },
+  ],
+};
+
+const audioBlindPack: QuizPack = {
+  id: "ab-v1",
+  title: "Blind",
+  version: 1,
+  rounds: [
+    {
+      kind: "audio_blind",
+      id: "ar",
+      title: "Son",
+      tracks: [
+        { id: "t1", audioUrl: "/games/a.mp3", revealTitle: "Titre A" },
+        { id: "t2", audioUrl: "/games/b.mp3", revealTitle: "Titre B", revealArtist: "Art B" },
+      ],
+    },
+  ],
+};
+
 function partyStub(over: Partial<Party>): Party {
   const base: Party = {
     id: "party-uuid",
@@ -84,6 +116,8 @@ describe("partySnapshotWithGame", () => {
   const packs = new Map<string, QuizPack>([
     ["example", demoPack],
     ["vid", videoRoundPack],
+    ["free", freeBuzzPack],
+    ["aud", audioBlindPack],
   ]);
 
   test("quiz host snapshot includes correct index", () => {
@@ -123,6 +157,26 @@ describe("partySnapshotWithGame", () => {
     if (s.gameBoard?.kind !== "video") throw new Error("expected video");
     expect(s.gameBoard.replaySerial).toBe(3);
     expect(s.gameBoard.videoUrl).toContain("example.com");
+  });
+
+  test("audio blind hides reveal from players", () => {
+    const party = partyStub({
+      state: "round_active",
+      currentRoundIndex: 0,
+      currentQuestionIndex: 1,
+      loadedPackId: "ab-v1",
+      hasStartedRound: true,
+      mancheScript: [quizMancheOverPack("aud", "mid-a")],
+      activeMancheId: "mid-a",
+    });
+    const play = partySnapshotWithGame(party, packs, "player");
+    expect(play.gameBoard?.kind).toBe("audio_blind");
+    if (play.gameBoard?.kind !== "audio_blind") throw new Error("audio");
+    expect(play.gameBoard.revealTitle).toBeUndefined();
+    const host = partySnapshotWithGame(party, packs, "host");
+    if (host.gameBoard?.kind !== "audio_blind") throw new Error("audio host");
+    expect(host.gameBoard.revealTitle).toBe("Titre B");
+    expect(host.gameBoard.revealArtist).toBe("Art B");
   });
 
   test("omits gameBoard when no round manche is targeted", () => {

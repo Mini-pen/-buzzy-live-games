@@ -2,7 +2,61 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
-import { quizPackSchema, scanQuizPacks } from "./pack.js";
+import {
+  isAudioBlindRound,
+  isFreeBuzzRound,
+  isVideoRound,
+  quizPackSchema,
+  scanQuizPacks,
+} from "./pack.js";
+
+describe("round discriminators", () => {
+  test("legacy video round has videoUrl without kind", () => {
+    const r = {
+      id: "v",
+      title: "V",
+      videoUrl: "/games/demo/clip.mp4",
+    };
+    expect(isVideoRound(r)).toBe(true);
+    expect(isFreeBuzzRound(r)).toBe(false);
+    expect(isAudioBlindRound(r)).toBe(false);
+  });
+
+  test("free_buzz schema", () => {
+    const p = quizPackSchema.parse({
+      id: "f",
+      title: "F",
+      version: 1,
+      rounds: [
+        {
+          kind: "free_buzz",
+          id: "r1",
+          title: "Libre",
+          playerPrompt: "Buzz",
+          plannedQuestionCount: 5,
+        },
+      ],
+    });
+    expect(isFreeBuzzRound(p.rounds[0])).toBe(true);
+  });
+
+  test("audio_blind schema", () => {
+    const p = quizPackSchema.parse({
+      id: "a",
+      title: "A",
+      version: 1,
+      rounds: [
+        {
+          kind: "audio_blind",
+          id: "r1",
+          title: "Son",
+          tracks: [{ id: "x", audioUrl: "/games/x.wav", revealTitle: "T", revealArtist: "Arti" }],
+        },
+      ],
+    });
+    expect(isAudioBlindRound(p.rounds[0])).toBe(true);
+  });
+});
 
 describe("scanQuizPacks", () => {
   test("indexes nested pack under guess_by_color/", async () => {

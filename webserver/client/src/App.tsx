@@ -20,7 +20,7 @@ interface PartyGameBoardQuiz {
   correctChoiceIndex?: number;
 }
 
-/** * Video clip surface; `replaySerial` changes restart playback on clients. */
+/** * Vidéo auto-hébergée ou fichier direct (`<video src>` ; préférez HTTPS ou `/games/…`). */
 interface PartyGameBoardVideo {
   kind: "video";
   packTitle: string;
@@ -29,6 +29,33 @@ interface PartyGameBoardVideo {
   roundNumberHuman: number;
   videoUrl: string;
   replaySerial: number;
+}
+
+/** * Questions libres : pas de choix multiples, buzz sur oral. */
+interface PartyGameBoardFreeBuzz {
+  kind: "free_buzz";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  questionNumberHuman: number;
+  plannedQuestionCount: number | null;
+  prompt: string;
+}
+
+/** * Blind test audio : titre / artiste seulement côté animateur si présents dans le snapshot. */
+interface PartyGameBoardAudioBlind {
+  kind: "audio_blind";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  trackIndexHuman: number;
+  trackCount: number;
+  audioUrl: string;
+  replaySerial: number;
+  revealTitle?: string;
+  revealArtist?: string;
 }
 
 /** * Legacy « page web » manche — never embedded client-side ; link-out only for older scénarios. */
@@ -50,6 +77,8 @@ interface PartyGameBoardYoutube {
 type PartyGameBoardSurface =
   | PartyGameBoardQuiz
   | PartyGameBoardVideo
+  | PartyGameBoardFreeBuzz
+  | PartyGameBoardAudioBlind
   | PartyGameBoardIframe
   | PartyGameBoardYoutube;
 
@@ -863,6 +892,82 @@ function GameBoardPanel(props: {
     );
   }
 
+  if (board !== null && board.kind === "free_buzz") {
+    const planned = board.plannedQuestionCount;
+    return (
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-info">
+            <span className="bz-dot" />
+            questions libres
+          </span>
+          <span>
+            {board.packTitle} · Manche {board.roundNumberHuman} — {board.roundTitle}
+          </span>
+        </div>
+        <h2 className="bz-board-prompt">Question {board.questionNumberHuman}</h2>
+        {planned !== null ? (
+          <p className="bz-muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
+            Environ {planned} question{planned === 1 ? "" : "s"} prévue{planned === 1 ? "" : "s"} pour cette
+            manche (indicatif — l&apos;animateur peut s&apos;arrêter avant ou prolonger).
+          </p>
+        ) : null}
+        <p className="bz-free-buzz-lead">{board.prompt}</p>
+      </section>
+    );
+  }
+
+  if (board !== null && board.kind === "audio_blind") {
+    const showReveal =
+      revealCorrect &&
+      typeof board.revealTitle === "string" &&
+      board.revealTitle.trim() !== "";
+    return (
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-accent">
+            <span className="bz-dot" />
+            blind test
+          </span>
+          <span>
+            {board.packTitle} · {board.roundTitle} — extrait {board.trackIndexHuman}/{board.trackCount}
+          </span>
+        </div>
+        <audio
+          key={board.replaySerial}
+          controls
+          className="bz-board-audio"
+          preload="metadata"
+          src={board.audioUrl}
+        >
+          Lecture audio non supportée.
+        </audio>
+        {showReveal ? (
+          <div className="bz-audio-host-reveal">
+            <p style={{ margin: "0 0 6px", fontSize: 15 }}>
+              <span className="bz-pill bz-good">
+                <span className="bz-dot" />
+                fiche animateur
+              </span>
+            </p>
+            <p style={{ margin: 0, fontSize: 17 }}>
+              <strong>Titre</strong> : {board.revealTitle}
+            </p>
+            {typeof board.revealArtist === "string" && board.revealArtist.trim() !== "" ? (
+              <p style={{ margin: "8px 0 0", fontSize: 16 }}>
+                <strong>Artiste / détail</strong> : {board.revealArtist}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="bz-board-embed-hint bz-muted">
+            Écoute l&apos;extrait. Titre et artiste ne sont pas affichés ici pour les joueurs ni en projection.
+          </p>
+        )}
+      </section>
+    );
+  }
+
   if (board !== null && board.kind === "quiz") {
     const ci = board.correctChoiceIndex;
     const correctText =
@@ -1284,8 +1389,12 @@ function Play(): JSX.Element {
             <span className="bz-pill">buzzer fermé</span>
             <p>
               {snap.gameBoard !== null &&
-              (snap.gameBoard.kind === "video" || snap.gameBoard.kind === "youtube")
-                ? "Regarde la vidéo — l'animateur peut la relancer pour tout le monde."
+              (snap.gameBoard.kind === "video" ||
+                snap.gameBoard.kind === "youtube" ||
+                snap.gameBoard.kind === "audio_blind")
+                ? "Regarde ou écoute — l'animateur peut enchaîner l'extrait pour tout le monde."
+                : snap.gameBoard !== null && snap.gameBoard.kind === "free_buzz"
+                  ? "Pas de choix à l'écran : réponds à voix quand l’animateur ouvre le buzzer."
                 : snap.state === "lobby"
                 ? "En attente du démarrage de la manche par l'animateur."
                 : snap.state === "between_rounds"
@@ -1879,7 +1988,8 @@ function Admin(): JSX.Element {
             </div>
             <p className="bz-muted" style={{ margin: "10px 0 0", fontSize: 13 }}>
               « ▶ Lancer la manche » joue et met en <strong>tête</strong> la première ligne ; réordonnez avec les
-              flèches avant de lancer. Les packs quiz se chargent automatiquement quand leur manche est active.
+              flèches avant de lancer. Les packs quiz (dont questions libres et blind test audio) se chargent avec la
+              manche ; les vidéos directs et YouTube suivent le scénario habituel.
             </p>
             {snap.mancheScript.length === 0 ? (
               <p style={{ margin: "14px 0 0" }} className="bz-muted">

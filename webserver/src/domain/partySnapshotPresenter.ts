@@ -1,9 +1,14 @@
 import type { QuizPack } from "../games/pack.js";
-import { isVideoRound } from "../games/pack.js";
+import {
+  isAudioBlindRound,
+  isFreeBuzzRound,
+  isVideoRound,
+} from "../games/pack.js";
 import { canonicalYoutubeEmbedIframeSrc } from "./youtubeEmbed.js";
 import { publicSnapshotForParty } from "./partyLogic.js";
 import type {
   Party,
+  PartyGameBoardAudioBlind,
   PartyGameBoardQuiz,
   PartyGameBoardSurface,
   PartyPublicSnapshot,
@@ -100,6 +105,45 @@ function deriveGameBoard(
       videoUrl: round.videoUrl,
       replaySerial: party.videoReplaySerial,
     };
+  }
+
+  if (isFreeBuzzRound(round)) {
+    const planned =
+      round.plannedQuestionCount === undefined ? null : round.plannedQuestionCount;
+    return {
+      kind: "free_buzz",
+      packTitle: pack.title,
+      roundIndex: ri,
+      roundTitle: round.title,
+      roundNumberHuman: ri + 1,
+      questionNumberHuman: qi + 1,
+      plannedQuestionCount: planned,
+      prompt: round.playerPrompt,
+    };
+  }
+
+  if (isAudioBlindRound(round)) {
+    if (qi >= round.tracks.length) return null;
+    const t = round.tracks[qi];
+    const base: PartyGameBoardAudioBlind = {
+      kind: "audio_blind",
+      packTitle: pack.title,
+      roundIndex: ri,
+      roundTitle: round.title,
+      roundNumberHuman: ri + 1,
+      trackIndexHuman: qi + 1,
+      trackCount: round.tracks.length,
+      audioUrl: t.audioUrl,
+      replaySerial: party.videoReplaySerial,
+    };
+    if (audience === "host") {
+      return {
+        ...base,
+        revealTitle: t.revealTitle,
+        ...(t.revealArtist !== undefined ? { revealArtist: t.revealArtist } : {}),
+      };
+    }
+    return base;
   }
 
   if (qi >= round.questions.length) return null;

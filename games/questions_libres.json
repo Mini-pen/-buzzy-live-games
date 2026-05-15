@@ -1,0 +1,14 @@
+{
+  "id": "questions-libres-v1",
+  "title": "Questions libres (vierge)",
+  "version": 1,
+  "rounds": [
+    {
+      "kind": "free_buzz",
+      "id": "manche-libre",
+      "title": "À la carte animateur",
+      "playerPrompt": "Écoute bien l’animateur. Quand tu penses avoir la bonne réponse et que le buzzer est ouvert — buzz.",
+      "plannedQuestionCount": 12
+    }
+  ]
+}

@@ -87,7 +87,7 @@ export interface PartyGameBoardQuiz {
   correctChoiceIndex?: number;
 }
 
-/** * Video segment surface from a quiz pack JSON round. */
+/** * Video clip or self-hosted stream (pack `videoUrl` or admin `direct_video`). */
 export interface PartyGameBoardVideo {
   kind: "video";
   packTitle: string;
@@ -96,6 +96,33 @@ export interface PartyGameBoardVideo {
   roundNumberHuman: number;
   videoUrl: string;
   replaySerial: number;
+}
+
+/** * Buzzer-only cue: no choices; host advances “questions” freely. */
+export interface PartyGameBoardFreeBuzz {
+  kind: "free_buzz";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  questionNumberHuman: number;
+  plannedQuestionCount: number | null;
+  prompt: string;
+}
+
+/** * Blind test: players hear `audioUrl`; reveal fields exist only for host snapshots. */
+export interface PartyGameBoardAudioBlind {
+  kind: "audio_blind";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  trackIndexHuman: number;
+  trackCount: number;
+  audioUrl: string;
+  replaySerial: number;
+  revealTitle?: string;
+  revealArtist?: string;
 }
 
 /** * Host-provided iframe manche. */
@@ -117,6 +144,8 @@ export interface PartyGameBoardYoutube {
 export type PartyGameBoardSurface =
   | PartyGameBoardQuiz
   | PartyGameBoardVideo
+  | PartyGameBoardFreeBuzz
+  | PartyGameBoardAudioBlind
   | PartyGameBoardIframe
   | PartyGameBoardYoutube;
 
@@ -145,7 +174,7 @@ export interface PartyPublicSnapshot {
   }>;
   teamScores: Record<string, number>;
   chatTail: ChatEntry[];
-  /** * Indices into loaded pack JSON when `gameBoard.kind === quiz|video` from pack. */
+  /** * Indices into loaded pack JSON for pack-driven manches. */
   currentRoundIndex: number | null;
   currentQuestionIndex: number | null;
   /** * Non-null during `round_active` when content resolves. */

@@ -3,7 +3,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { nanoid } from "nanoid";
 
 import type { QuizPack } from "../games/pack.js";
-import { isVideoRound } from "../games/pack.js";
+import { isAudioBlindRound, isFreeBuzzRound, isVideoRound } from "../games/pack.js";
 import { parseAvatarKeyOrDefault, requireParsedAvatarKey } from "../avatars/catalog.js";
 import { randomJoinCode, randomSecretHex } from "./codes.js";
 import { evaluateJoin, normalizeTeamChoice, publicSnapshotForParty } from "./partyLogic.js";
@@ -348,6 +348,13 @@ export class PartyStore {
         throw Object.assign(new Error("BAD_ROUND"), { code: "BAD_ROUND" });
       if (isVideoRound(round)) {
         party.currentQuestionIndex = 0;
+      } else if (isFreeBuzzRound(round)) {
+        party.currentQuestionIndex = Math.min(Math.max(item.savedQuestionIndex, 0), 100_000);
+      } else if (isAudioBlindRound(round)) {
+        party.currentQuestionIndex = Math.min(
+          Math.max(item.savedQuestionIndex, 0),
+          Math.max(round.tracks.length - 1, 0),
+        );
       } else {
         party.currentQuestionIndex = Math.min(
           Math.max(item.savedQuestionIndex, 0),
@@ -464,6 +471,34 @@ export class PartyStore {
       this.touch(party);
       this.broadcast(party);
       return;
+    }
+    if (isFreeBuzzRound(round)) {
+      const qix = party.currentQuestionIndex ?? 0;
+      party.currentQuestionIndex = qix + 1;
+      party.buzzWindowOpen = false;
+      party.buzzOrder = [];
+      this.syncActiveQuizProgressIntoScriptItem(party);
+      this.touch(party);
+      this.broadcast(party);
+      return;
+    }
+    if (isAudioBlindRound(round)) {
+      const qix = party.currentQuestionIndex ?? 0;
+      const nextIx = qix + 1;
+      if (nextIx < round.tracks.length) {
+        party.currentQuestionIndex = nextIx;
+        party.videoReplaySerial += 1;
+        party.buzzWindowOpen = false;
+        party.buzzOrder = [];
+        this.syncActiveQuizProgressIntoScriptItem(party);
+        this.touch(party);
+        this.broadcast(party);
+        return;
+      }
+      throw Object.assign(
+        new Error("Fin des extraits de cette manche — passez à la suivante ou mettez en pause."),
+        { code: "ROUND_EXHAUSTED" },
+      );
     }
     const qi = party.currentQuestionIndex;
     if (qi === null || qi < 0) {

@@ -7,16 +7,17 @@ import { z } from "zod";
 /** * Skip huge JSON blobs (e.g. data exports) mistaken for quiz packs. */
 export const MAX_QUIZ_PACK_JSON_BYTES = 520_000;
 
-const optionalQuizImageUrlSchema = z
+/** * HTTPS, localhost http, or absolute same-origin path (e.g. `/games/…`). */
+export const optionalPublicUrlSchema = z
   .string()
   .trim()
   .min(1)
   .max(4096)
   .refine((s) => !s.includes(".."), {
-    message: "IMAGE_URL_REJECTED",
+    message: "PUBLIC_URL_REJECTED",
   })
   .refine((s) => !/^\s*javascript:/iu.test(s), {
-    message: "IMAGE_URL_REJECTED",
+    message: "PUBLIC_URL_REJECTED",
   })
   .refine(
     (s) =>
@@ -24,7 +25,7 @@ const optionalQuizImageUrlSchema = z
       /^https:\/\/[^/\s]+/iu.test(s) ||
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/\S+/iu.test(s),
     {
-      message: "IMAGE_URL_REJECTED",
+      message: "PUBLIC_URL_REJECTED",
     },
   );
 
@@ -34,8 +35,7 @@ const questionSchema = z.object({
   choices: z.array(z.string()).min(2),
   correctIndex: z.number().int().nonnegative(),
   points: z.number().int().positive(),
-  /** * Absolute HTTPS (or localhost http) URL, or same-origin absolute path `/…` (e.g. under `/games/…`). */
-  imageUrl: optionalQuizImageUrlSchema.optional(),
+  imageUrl: optionalPublicUrlSchema.optional(),
 });
 
 export const quizRoundSchema = z
@@ -46,6 +46,7 @@ export const quizRoundSchema = z
   })
   .strict();
 
+/** * Classic video segment (`videoUrl`). No `kind` field (legacy packs). */
 export const videoRoundSchema = z
   .object({
     id: z.string().min(1),
@@ -54,16 +55,58 @@ export const videoRoundSchema = z
   })
   .strict();
 
-export const roundSchema = z.union([quizRoundSchema, videoRoundSchema]);
+/** * Buzzer-only prompts; index is host-advanced, optional soft cap for player display. */
+export const freeBuzzRoundSchema = z
+  .object({
+    kind: z.literal("free_buzz"),
+    id: z.string().min(1),
+    title: z.string().min(1),
+    playerPrompt: z.string().min(1),
+    plannedQuestionCount: z.number().int().positive().nullable().optional(),
+  })
+  .strict();
+
+const audioBlindTrackSchema = z.object({
+  id: z.string().min(1),
+  audioUrl: optionalPublicUrlSchema,
+  revealTitle: z.string().min(1),
+  revealArtist: z.string().min(1).optional(),
+});
+
+export const audioBlindRoundSchema = z
+  .object({
+    kind: z.literal("audio_blind"),
+    id: z.string().min(1),
+    title: z.string().min(1),
+    tracks: z.array(audioBlindTrackSchema).min(1),
+  })
+  .strict();
+
+export const roundSchema = z.union([
+  freeBuzzRoundSchema,
+  audioBlindRoundSchema,
+  videoRoundSchema,
+  quizRoundSchema,
+]);
 
 export type QuizRound = z.infer<typeof quizRoundSchema>;
 export type VideoRound = z.infer<typeof videoRoundSchema>;
+export type FreeBuzzRound = z.infer<typeof freeBuzzRoundSchema>;
+export type AudioBlindRound = z.infer<typeof audioBlindRoundSchema>;
 export type PackRound = z.infer<typeof roundSchema>;
 export type QuizQuestion = z.infer<typeof questionSchema>;
 
-/** * Distinguishes a video segment from a buzzer quiz segment inside a pack JSON. */
+/** * Legacy video round: has `videoUrl` and no explicit `kind`. */
 export function isVideoRound(r: PackRound): r is VideoRound {
-  return typeof (r as VideoRound).videoUrl === "string";
+  return "videoUrl" in r && !("kind" in r);
+}
+
+export function isFreeBuzzRound(r: PackRound): r is FreeBuzzRound {
+  return (r as { kind?: string }).kind === "free_buzz";
+}
+
+export function isAudioBlindRound(r: PackRound): r is AudioBlindRound {
+  return (r as { kind?: string }).kind === "audio_blind";
 }
 
 export const quizPackSchema = z.object({
@@ -77,7 +120,7 @@ export type QuizPack = z.infer<typeof quizPackSchema>;
 
 function validatePackInvariants(parsed: QuizPack): void {
   for (const r of parsed.rounds) {
-    if (isVideoRound(r)) continue;
+    if (isVideoRound(r) || isFreeBuzzRound(r) || isAudioBlindRound(r)) continue;
     for (const q of r.questions) {
       if (q.correctIndex >= q.choices.length) {
         throw new Error(`Question ${q.id}: correctIndex out of bounds`);
