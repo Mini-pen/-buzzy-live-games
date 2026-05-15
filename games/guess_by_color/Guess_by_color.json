@@ -1,41 +1,548 @@
 {
   "id": "guess-by-color-images-v1",
-  "title": "Série d’images (réponse orale)",
+  "title": "Série d'images (réponse orale)",
   "version": 1,
   "rounds": [
     {
       "kind": "image_buzz",
-      "id": "visuels",
-      "title": "Devine les personnages à partir de l'image",
+      "id": "animated-easy",
+      "title": "Dessins animés - facile",
       "slides": [
         {
-          "id": "Dessins animés - facile - 001",
+          "id": "animated-easy-001",
           "imageUrl": "games/guess_by_color/images/animated-easy/animated_001.png",
           "prompt": "Buzz quand tu as trouvé !"
         },
         {
-          "id": "Dessins animés - facile - 002",
+          "id": "animated-easy-002",
           "imageUrl": "games/guess_by_color/images/animated-easy/animated_002.png",
           "prompt": "Buzz quand tu as trouvé !"
         },
         {
-          "id": "Dessins animés - facile - 003",
+          "id": "animated-easy-003",
           "imageUrl": "games/guess_by_color/images/animated-easy/animated_003.png",
           "prompt": "Buzz quand tu as trouvé !"
         },
         {
-          "id": "Dessins animés - facile - 004",
+          "id": "animated-easy-004",
           "imageUrl": "games/guess_by_color/images/animated-easy/animated_004.png",
           "prompt": "Buzz quand tu as trouvé !"
         },
         {
-          "id": "Dessins animés - facile - 005",
+          "id": "animated-easy-005",
           "imageUrl": "games/guess_by_color/images/animated-easy/animated_005.png",
           "prompt": "Buzz quand tu as trouvé !"
         },
         {
-          "id": "Dessins animés - facile - 006",
+          "id": "animated-easy-006",
           "imageUrl": "games/guess_by_color/images/animated-easy/animated_006.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "animated-easy-007",
+          "imageUrl": "games/guess_by_color/images/animated-easy/animated_007.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "animated-easy-008",
+          "imageUrl": "games/guess_by_color/images/animated-easy/animated_008.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "animated-easy-009",
+          "imageUrl": "games/guess_by_color/images/animated-easy/animated_009.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "animated-easy-010",
+          "imageUrl": "games/guess_by_color/images/animated-easy/animated_010.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "animated-easy-011",
+          "imageUrl": "games/guess_by_color/images/animated-easy/animated_011.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "animated-easy-012",
+          "imageUrl": "games/guess_by_color/images/animated-easy/animated_012.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "animated-easy-013",
+          "imageUrl": "games/guess_by_color/images/animated-easy/animated_013.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        }
+      ]
+    },
+    {
+      "kind": "image_buzz",
+      "id": "cartoons-easy",
+      "title": "Cartoons - facile",
+      "slides": [
+        {
+          "id": "cartoons-easy-001",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_001.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-002",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_002.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-003",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_003.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-004",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_004.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-005",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_005.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-006",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_006.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-007",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_007.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-008",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_008.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-009",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_009.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-010",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_010.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-easy-011",
+          "imageUrl": "games/guess_by_color/images/cartoons-easy/cartoons_011.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        }
+      ]
+    },
+    {
+      "kind": "image_buzz",
+      "id": "cartoons-expert",
+      "title": "Cartoons - expert",
+      "slides": [
+        {
+          "id": "cartoons-expert-001",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_001.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-002",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_002.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-003",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_003.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-004",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_004.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-005",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_005.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-006",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_006.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-007",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_007.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-008",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_008.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-009",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_009.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-010",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_010.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-011",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_011.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cartoons-expert-012",
+          "imageUrl": "games/guess_by_color/images/cartoons-expert/cartoons_012.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        }
+      ]
+    },
+    {
+      "kind": "image_buzz",
+      "id": "cinema-easy",
+      "title": "Cinéma - facile",
+      "slides": [
+        {
+          "id": "cinema-easy-001",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_001.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-002",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_002.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-003",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_003.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-004",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_004.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-005",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_005.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-006",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_006.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-007",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_007.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-008",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_008.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-009",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_009.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-010",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_010.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-011",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_011.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-012",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_012.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-013",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_013.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-014",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_014.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "cinema-easy-015",
+          "imageUrl": "games/guess_by_color/images/cinema-easy/cinema_015.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        }
+      ]
+    },
+    {
+      "kind": "image_buzz",
+      "id": "comics-easy",
+      "title": "Comics - facile",
+      "slides": [
+        {
+          "id": "comics-easy-001",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_001.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-002",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_002.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-003",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_003.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-004",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_004.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-005",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_005.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-006",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_006.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-007",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_007.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-008",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_008.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-009",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_009.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-010",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_010.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-011",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_011.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-012",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_012.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "comics-easy-013",
+          "imageUrl": "games/guess_by_color/images/comics-easy/comics_013.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        }
+      ]
+    },
+    {
+      "kind": "image_buzz",
+      "id": "superheroes-expert",
+      "title": "Super-héros - expert",
+      "slides": [
+        {
+          "id": "superheroes-expert-001",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_001.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-002",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_002.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-003",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_003.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-004",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_004.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-005",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_005.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-006",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_006.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-007",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_007.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-008",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_008.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-009",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_009.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-010",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_010.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-011",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_011.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-012",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_012.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-013",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_013.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-014",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_014.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-015",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_015.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-016",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_016.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-017",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_017.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-018",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_018.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "superheroes-expert-019",
+          "imageUrl": "games/guess_by_color/images/superheroes-expert/superheroes_019.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        }
+      ]
+    },
+    {
+      "kind": "image_buzz",
+      "id": "video-easy",
+      "title": "Jeux vidéo - facile",
+      "slides": [
+        {
+          "id": "video-easy-001",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_001.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-002",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_002.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-003",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_003.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-004",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_004.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-005",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_005.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-006",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_006.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-007",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_007.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-008",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_008.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-009",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_009.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-010",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_010.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-011",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_011.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-012",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_012.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-013",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_013.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-014",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_014.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-015",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_015.png",
+          "prompt": "Buzz quand tu as trouvé !"
+        },
+        {
+          "id": "video-easy-016",
+          "imageUrl": "games/guess_by_color/images/video-easy/video_016.png",
           "prompt": "Buzz quand tu as trouvé !"
         }
       ]
