@@ -1491,6 +1491,40 @@ html, body {
   outline-offset: 2px;
 }
 
+.bz-app .bz-join-sound-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+.bz-app .bz-join-sound-select {
+  flex: 1 1 220px;
+  min-width: 0;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--bz-line);
+  background: var(--bz-surface);
+  color: var(--bz-text);
+  font-family: var(--bz-f-body);
+  font-size: 15px;
+}
+.bz-app .bz-join-sound-preview {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--bz-line-strong);
+  background: var(--bz-surface-2);
+  color: var(--bz-text-strong);
+  cursor: pointer;
+  font-family: var(--bz-f-body);
+  font-size: 15px;
+}
+.bz-app .bz-join-sound-preview:hover {
+  background: var(--bz-surface);
+}
+
 /* Iframes externes — cadre sombre derrière (sans toucher au contenu cross-origin) */
 .bz-app .bz-board-embed-wrap {
   background: var(--bz-bg-2);

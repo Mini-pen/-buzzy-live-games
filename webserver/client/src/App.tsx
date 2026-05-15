@@ -133,6 +133,34 @@ interface PartySnapshot {
   };
 }
 
+/** * Catalogue GET `/api/sounds` — buzzer samples for join + host policy. */
+interface CatalogSoundEntry {
+  key: string;
+  label: string;
+  pool: string;
+  url: string;
+}
+
+/** * Groups catalog entries for an optgroup `<select>` (neutral first, then good, then bad). */
+function groupCatalogSoundsForJoin(
+  sounds: CatalogSoundEntry[],
+): { label: string; items: CatalogSoundEntry[] }[] {
+  const neutral = sounds
+    .filter((s) => s.pool === "neutral")
+    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  const good = sounds
+    .filter((s) => s.pool === "good")
+    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  const bad = sounds
+    .filter((s) => s.pool === "bad")
+    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  return [
+    { label: "Sons de buzzer et divers", items: neutral },
+    { label: "Ambiance positive", items: good },
+    { label: "Ambiance négative", items: bad },
+  ].filter((g) => g.items.length > 0);
+}
+
 /** * Compact label for animateur lists. */
 function mancheKindShort(kind: MancheCatalogItemView["kind"]): string {
   switch (kind) {
@@ -640,6 +668,12 @@ function Join(): JSX.Element {
     defaultKey: string;
     avatars: Array<{ key: string; label: string; url: string }>;
   } | null>(null);
+  const [soundsLib, setSoundsLib] = useState<{
+    defaultBuzzerKey: string;
+    sounds: CatalogSoundEntry[];
+  } | null>(null);
+  /** * Key sent to `POST /join` — initialised once `/api/sounds` loads. */
+  const [buzzSoundKeyChosen, setBuzzSoundKeyChosen] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -648,6 +682,12 @@ function Join(): JSX.Element {
       defaultKey: string;
       avatars: Array<{ key: string; label: string; url: string }>;
     }>(`/api/avatars`).then(setAvatarsLib);
+  }, []);
+
+  useEffect(() => {
+    void fetchJson<{ defaultBuzzerKey: string; sounds: CatalogSoundEntry[] }>(`/api/sounds`).then(
+      setSoundsLib,
+    );
   }, []);
 
   useEffect(() => {
@@ -697,6 +737,14 @@ function Join(): JSX.Element {
     setAvatarKeyChosen(avatarsLib.defaultKey || first);
   }, [avatarsLib, avatarKeyChosen]);
 
+  useEffect(() => {
+    if (soundsLib === null || buzzSoundKeyChosen !== "") return;
+    const d = soundsLib.defaultBuzzerKey.trim();
+    const hasDefault = soundsLib.sounds.some((s) => s.key === d);
+    const fallback = soundsLib.sounds[0]?.key ?? "";
+    setBuzzSoundKeyChosen(hasDefault ? d : fallback);
+  }, [soundsLib, buzzSoundKeyChosen]);
+
   const pidNormField = canonicalPartyIdFromRoute(partyId);
   const joinPartyIdResolved: string =
     pidNormField !== "" ? pidNormField : snap !== null ? canonicalPartyIdFromRoute(snap.id) : "";
@@ -722,6 +770,7 @@ function Join(): JSX.Element {
             "fox";
       const body: Record<string, unknown> = { displayName: name.trim(), avatarKey: key };
       if (snap.maxTeams != null && snap.maxTeams >= 2) body.teamId = teamId;
+      if (buzzSoundKeyChosen.trim() !== "") body.buzzSoundKey = buzzSoundKeyChosen.trim();
       const res = await fetchJson<{ playerToken: string }>(
         `/api/parties/${encodeURIComponent(pidCanon)}/join`,
         { method: "POST", body: JSON.stringify(body) },
@@ -813,6 +862,50 @@ function Join(): JSX.Element {
             </>
           )}
         </section>
+        <section aria-labelledby="join-buzz-sound-heading">
+          <h3 id="join-buzz-sound-heading" style={{ fontSize: 16, margin: "14px 0 8px" }}>
+            Son du buzzer
+          </h3>
+          {soundsLib === null ? (
+            <p style={{ margin: 0, opacity: 0.75 }}>Chargement des sons…</p>
+          ) : soundsLib.sounds.length === 0 ? (
+            <p style={{ margin: 0, opacity: 0.75 }}>Aucun son disponible (défaut serveur).</p>
+          ) : (
+            <>
+              <p style={{ margin: "0 0 10px", fontSize: 14, opacity: 0.85 }}>
+                Choisissez le son joué sur votre téléphone quand vous buzz (si l’animateur l’autorise).
+              </p>
+              <div className="bz-join-sound-row">
+                <select
+                  aria-labelledby="join-buzz-sound-heading"
+                  className="bz-join-sound-select"
+                  value={buzzSoundKeyChosen}
+                  onChange={(e) => setBuzzSoundKeyChosen(e.target.value)}
+                >
+                    {groupCatalogSoundsForJoin(soundsLib.sounds).map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.items.map((s) => (
+                          <option key={s.key} value={s.key}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="bz-join-sound-preview"
+                  onClick={() => {
+                    const hit = soundsLib.sounds.find((s) => s.key === buzzSoundKeyChosen);
+                    playSfxUrl(hit?.url);
+                  }}
+                >
+                  Écouter
+                </button>
+              </div>
+            </>
+          )}
+        </section>
         {needsTeam ? (
           <label>
             Équipe (1–{snap.maxTeams})
@@ -828,7 +921,15 @@ function Join(): JSX.Element {
           </label>
         ) : null}
         {err ? <p style={{ color: "crimson" }}>{err}</p> : null}
-        <button type="submit" disabled={snap === null || loading || avatarKeyChosen === ""}>
+        <button
+          type="submit"
+          disabled={
+            snap === null ||
+            loading ||
+            avatarKeyChosen === "" ||
+            (soundsLib !== null && soundsLib.sounds.length > 0 && buzzSoundKeyChosen === "")
+          }
+        >
           Rejoindre le lobby / la partie
         </button>
       </form>
