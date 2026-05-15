@@ -31,7 +31,7 @@ export interface ChatEntry {
 export interface Player {
   id: string;
   displayName: string;
-  /** * Slug referencing `/avatars/${avatarKey}.svg` from the SPA public directory. */
+  /** * Basename under `/avatars/` (see `webserver/client/public/avatars`; built to `dist/client/avatars`). */
   avatarKey: string;
   /** * 1-based team index when teams are enabled; otherwise null. */
   teamId: number | null;

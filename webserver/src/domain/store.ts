@@ -156,10 +156,16 @@ export class PartyStore {
     if (!joinRes.ok) {
       throw Object.assign(new Error(joinRes.code), { code: joinRes.code });
     }
+    const avatarKeyResolved = parseAvatarKeyOrDefault(avatarKeyRaw);
+    if (avatarKeyResolved === "") {
+      throw Object.assign(new Error("AVATAR_CATALOG_EMPTY"), {
+        code: "AVATAR_CATALOG_EMPTY",
+      });
+    }
     const player: Player = {
       id: randomUUID(),
       displayName,
-      avatarKey: parseAvatarKeyOrDefault(avatarKeyRaw),
+      avatarKey: avatarKeyResolved,
       teamId: teamRes.teamId,
       score: 0,
       joinedAt: Date.now(),

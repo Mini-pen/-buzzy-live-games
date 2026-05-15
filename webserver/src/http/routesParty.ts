@@ -16,8 +16,8 @@ import { readBearer } from "./bearer.js";
 import { replyDomain } from "./replyDomain.js";
 import {
   avatarPublicRelativePath,
-  AVATAR_CATALOG,
-  DEFAULT_AVATAR_KEY,
+  getAvatarCatalog,
+  getDefaultAvatarKey,
 } from "../avatars/catalog.js";
 import { youtubeWatchUrlToEmbedUrl } from "../domain/youtubeEmbed.js";
 
@@ -165,8 +165,8 @@ export async function registerPartyRoutes(
   }));
 
   app.get("/api/avatars", async () => ({
-    defaultKey: DEFAULT_AVATAR_KEY,
-    avatars: AVATAR_CATALOG.map((entry) => ({
+    defaultKey: getDefaultAvatarKey(),
+    avatars: getAvatarCatalog().map((entry) => ({
       key: entry.key,
       label: entry.label,
       url: avatarPublicRelativePath(entry.key),

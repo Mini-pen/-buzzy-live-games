@@ -5,6 +5,7 @@ import { loadConfig } from "./config.js";
 import { partySnapshotWithGame } from "./domain/partySnapshotPresenter.js";
 import { PartyStore } from "./domain/store.js";
 import type { QuizPack } from "./games/pack.js";
+import { getAvatarCatalog } from "./avatars/catalog.js";
 import { scanQuizPacks } from "./games/pack.js";
 import { attachSocketIO } from "./realtime/socket.js";
 
@@ -30,6 +31,9 @@ async function main(): Promise<void> {
   const packs = await scanQuizPacks(config.gamesDir);
   quizPacksByRun = packs;
   console.info(`Indexed ${packs.size} quiz pack(s) under ${config.gamesDir}`);
+
+  const avatarN = getAvatarCatalog().length;
+  console.info(avatarN > 0 ? `Avatar library: ${avatarN} file(s)` : "Avatar library: empty");
 
   const app = await buildApp({ config, packs, store });
   await app.ready();

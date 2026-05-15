@@ -36,6 +36,7 @@ export function replyDomain(reply: FastifyReply, err: unknown): FastifyReply {
     BAD_MOVE: 400,
     BAD_YOUTUBE_URL: 400,
     BAD_AVATAR: 400,
+    AVATAR_CATALOG_EMPTY: 503,
   };
 
   const status = map[code] ?? 400;
