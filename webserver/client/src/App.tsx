@@ -43,6 +43,19 @@ interface PartyGameBoardFreeBuzz {
   prompt: string;
 }
 
+/** * Image plein écran ; réponse orale après buzz — pas de QCM. */
+interface PartyGameBoardImageBuzz {
+  kind: "image_buzz";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  slideIndexHuman: number;
+  slideCount: number;
+  imageUrl: string;
+  prompt?: string;
+}
+
 /** * Blind test audio : titre / artiste seulement côté animateur si présents dans le snapshot. */
 interface PartyGameBoardAudioBlind {
   kind: "audio_blind";
@@ -78,6 +91,7 @@ type PartyGameBoardSurface =
   | PartyGameBoardQuiz
   | PartyGameBoardVideo
   | PartyGameBoardFreeBuzz
+  | PartyGameBoardImageBuzz
   | PartyGameBoardAudioBlind
   | PartyGameBoardIframe
   | PartyGameBoardYoutube;
@@ -1048,6 +1062,32 @@ function GameBoardPanel(props: {
     );
   }
 
+  if (board !== null && board.kind === "image_buzz") {
+    const lead =
+      typeof board.prompt === "string" && board.prompt.trim() !== ""
+        ? board.prompt.trim()
+        : "Buzzer puis donne ta réponse à voix haute — pas de choix à l'écran.";
+    return (
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-info">
+            <span className="bz-dot" />
+            image · réponse orale
+          </span>
+          <span>
+            {board.packTitle} · Manche {board.roundNumberHuman} — {board.roundTitle} — visuel{" "}
+            {board.slideIndexHuman}/{board.slideCount}
+          </span>
+        </div>
+        <QuizIllustration imageUrl={board.imageUrl} variant="panel" />
+        <p className="bz-free-buzz-lead">{lead}</p>
+        <p className="bz-muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
+          L&apos;animateur ouvre le buzzer : la file indique qui répond à l&apos;oral dans l&apos;ordre.
+        </p>
+      </section>
+    );
+  }
+
   if (board !== null && board.kind === "audio_blind") {
     const showReveal =
       revealCorrect &&
@@ -1549,7 +1589,8 @@ function Play(): JSX.Element {
                     snap.gameBoard.kind === "youtube" ||
                     snap.gameBoard.kind === "audio_blind")
                   ? "Regarde ou écoute — l’animateur peut enchaîner l’extrait pour tout le monde."
-                : snap.gameBoard !== null && snap.gameBoard.kind === "free_buzz"
+                : snap.gameBoard !== null &&
+                  (snap.gameBoard.kind === "free_buzz" || snap.gameBoard.kind === "image_buzz")
                   ? "Pas de choix à l'écran : réponds à voix quand l’animateur ouvre le buzzer."
                 : snap.state === "lobby"
                 ? "En attente du démarrage de la manche par l'animateur."
@@ -2096,9 +2137,11 @@ function Admin(): JSX.Element {
   const cueAdvanceLabel =
     hostGameBoard !== null && hostGameBoard.kind === "audio_blind"
       ? "Extrait suivant →"
-      : hostGameBoard !== null && hostGameBoard.kind === "free_buzz"
-        ? "Question suivante (oral) →"
-        : "Question suivante →";
+      : hostGameBoard !== null && hostGameBoard.kind === "image_buzz"
+        ? "Image suivante →"
+        : hostGameBoard !== null && hostGameBoard.kind === "free_buzz"
+          ? "Question suivante (oral) →"
+          : "Question suivante →";
 
   return (
     <Shell title={`Animateur · ${snap.joinCode}`} wide>
@@ -2192,8 +2235,9 @@ function Admin(): JSX.Element {
             </div>
             <p className="bz-muted" style={{ margin: "10px 0 0", fontSize: 13 }}>
               « ▶ Lancer la manche » joue et met en <strong>tête</strong> la première ligne ; réordonnez avec les
-              flèches avant de lancer. Les packs quiz (dont questions libres et blind test audio) se chargent avec la
-              manche ; les vidéos directs et YouTube suivent le scénario habituel.
+              flèches avant de lancer. Les packs JSON (quiz à choix, questions libres orales, séries d’images
+              sans QCM, blind test audio…) se chargent avec la manche ; les vidéos directes et YouTube suivent le
+              scénario habituel.
             </p>
             {snap.mancheScript.length === 0 ? (
               <p style={{ margin: "14px 0 0" }} className="bz-muted">

@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import type { LoadedBuzzSoundCatalog } from "../games/buzzSoundCatalog.js";
 import { defaultBuzzSoundPolicyFromCatalog } from "../games/buzzSoundCatalog.js";
 import type { QuizPack } from "../games/pack.js";
-import { isAudioBlindRound, isFreeBuzzRound, isVideoRound } from "../games/pack.js";
+import { isAudioBlindRound, isFreeBuzzRound, isImageBuzzRound, isVideoRound } from "../games/pack.js";
 import { parseAvatarKeyOrDefault, requireParsedAvatarKey } from "../avatars/catalog.js";
 import { randomJoinCode, randomSecretHex } from "./codes.js";
 import { evaluateJoin, normalizeTeamChoice, publicSnapshotForParty } from "./partyLogic.js";
@@ -434,6 +434,11 @@ export class PartyStore {
           Math.max(item.savedQuestionIndex, 0),
           Math.max(round.tracks.length - 1, 0),
         );
+      } else if (isImageBuzzRound(round)) {
+        party.currentQuestionIndex = Math.min(
+          Math.max(item.savedQuestionIndex, 0),
+          Math.max(round.slides.length - 1, 0),
+        );
       } else {
         party.currentQuestionIndex = Math.min(
           Math.max(item.savedQuestionIndex, 0),
@@ -576,6 +581,24 @@ export class PartyStore {
       }
       throw Object.assign(
         new Error("Fin des extraits de cette manche — passez à la suivante ou mettez en pause."),
+        { code: "ROUND_EXHAUSTED" },
+      );
+    }
+    if (isImageBuzzRound(round)) {
+      const qix = party.currentQuestionIndex ?? 0;
+      const nextIx = qix + 1;
+      if (nextIx < round.slides.length) {
+        party.currentQuestionIndex = nextIx;
+        party.videoReplaySerial += 1;
+        party.buzzWindowOpen = false;
+        party.buzzOrder = [];
+        this.syncActiveQuizProgressIntoScriptItem(party);
+        this.touch(party);
+        this.broadcast(party);
+        return;
+      }
+      throw Object.assign(
+        new Error("Fin des images de cette manche — passez à la suivante ou mettez en pause."),
         { code: "ROUND_EXHAUSTED" },
       );
     }

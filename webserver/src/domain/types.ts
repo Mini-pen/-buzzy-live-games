@@ -126,6 +126,20 @@ export interface PartyGameBoardFreeBuzz {
   prompt: string;
 }
 
+/** * One full-screen image per step; oral answer after buzz (no listed choices). */
+export interface PartyGameBoardImageBuzz {
+  kind: "image_buzz";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  slideIndexHuman: number;
+  slideCount: number;
+  imageUrl: string;
+  /** * Optional line from the pack; absent clients show generic oral instructions. */
+  prompt?: string;
+}
+
 /** * Blind test: players hear `audioUrl`; reveal fields exist only for host snapshots. */
 export interface PartyGameBoardAudioBlind {
   kind: "audio_blind";
@@ -161,6 +175,7 @@ export type PartyGameBoardSurface =
   | PartyGameBoardQuiz
   | PartyGameBoardVideo
   | PartyGameBoardFreeBuzz
+  | PartyGameBoardImageBuzz
   | PartyGameBoardAudioBlind
   | PartyGameBoardIframe
   | PartyGameBoardYoutube;

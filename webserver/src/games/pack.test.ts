@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import {
   isAudioBlindRound,
   isFreeBuzzRound,
+  isImageBuzzRound,
   isVideoRound,
   quizPackSchema,
   scanQuizPacks,
@@ -38,6 +39,26 @@ describe("round discriminators", () => {
       ],
     });
     expect(isFreeBuzzRound(p.rounds[0])).toBe(true);
+  });
+
+  test("image_buzz schema", () => {
+    const p = quizPackSchema.parse({
+      id: "img",
+      title: "Img",
+      version: 1,
+      rounds: [
+        {
+          kind: "image_buzz",
+          id: "r1",
+          title: "Série",
+          slides: [
+            { id: "a", imageUrl: "/games/x.png" },
+            { id: "b", imageUrl: "/games/y.png", prompt: "Hint" },
+          ],
+        },
+      ],
+    });
+    expect(isImageBuzzRound(p.rounds[0])).toBe(true);
   });
 
   test("audio_blind schema", () => {

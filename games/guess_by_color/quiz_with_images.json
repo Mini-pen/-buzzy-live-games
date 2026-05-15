@@ -1,43 +1,30 @@
 {
   "id": "guess-by-color-images-v1",
-  "title": "Devine la couleur (images)",
+  "title": "Série d’images (réponse orale)",
   "version": 1,
   "rounds": [
     {
-      "id": "couleurs",
-      "title": "Pastilles de référence",
-      "questions": [
+      "kind": "image_buzz",
+      "id": "visuels",
+      "title": "À chaque image : buzz et réponds à l’oral",
+      "slides": [
         {
-          "id": "q_red",
-          "prompt": "Quelle couleur est représentée sur l’image ?",
+          "id": "slide_1",
           "imageUrl": "/games/guess_by_color/assets/swatches/red.svg",
-          "choices": ["Rouge", "Vert", "Bleu", "Jaune"],
-          "correctIndex": 0,
-          "points": 1
+          "prompt": "Quand le buzzer est ouvert, buzz et dis ce que tu vois (ou ce que tu proposes)."
         },
         {
-          "id": "q_green",
-          "prompt": "Quelle couleur est représentée sur l’image ?",
-          "imageUrl": "/games/guess_by_color/assets/swatches/green.svg",
-          "choices": ["Orange", "Vert menthe", "Violet", "Marron"],
-          "correctIndex": 1,
-          "points": 1
+          "id": "slide_2",
+          "imageUrl": "/games/guess_by_color/assets/swatches/green.svg"
         },
         {
-          "id": "q_blue",
-          "prompt": "Quelle couleur est représentée sur l’image ?",
-          "imageUrl": "/games/guess_by_color/assets/swatches/blue.svg",
-          "choices": ["Cyan", "Bleu", "Indigo", "Gris"],
-          "correctIndex": 1,
-          "points": 2
+          "id": "slide_3",
+          "imageUrl": "/games/guess_by_color/assets/swatches/blue.svg"
         },
         {
-          "id": "q_external_https",
-          "prompt": "Exemple avec image distante HTTPS : de quoi s’agit-il ?",
+          "id": "slide_https",
           "imageUrl": "https://picsum.photos/id/237/400/300",
-          "choices": ["Un chien noir", "Un chat domestique", "Un loup", "Un renard"],
-          "correctIndex": 0,
-          "points": 1
+          "prompt": "Exemple d’image distante (HTTPS) — même principe : réponse orale après buzz."
         }
       ]
     }

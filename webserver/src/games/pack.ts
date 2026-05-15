@@ -66,6 +66,23 @@ export const freeBuzzRoundSchema = z
   })
   .strict();
 
+const imageBuzzSlideSchema = z.object({
+  id: z.string().min(1),
+  imageUrl: optionalPublicUrlSchema,
+  /** * Optional caption; when absent the client shows a generic oral-answer hint. */
+  prompt: z.string().min(1).optional(),
+});
+
+/** * One image per step; players buzz and answer out loud (no on-screen choices). */
+export const imageBuzzRoundSchema = z
+  .object({
+    kind: z.literal("image_buzz"),
+    id: z.string().min(1),
+    title: z.string().min(1),
+    slides: z.array(imageBuzzSlideSchema).min(1),
+  })
+  .strict();
+
 /** * Path suffix must look like an audio asset (streaming URLs without suffix may use localhost HTTP for dev). */
 function pathnameEndsWithKnownAudioSuffix(pathWithoutQuery: string): boolean {
   const p = pathWithoutQuery.trim();
@@ -106,6 +123,7 @@ export const audioBlindRoundSchema = z
 
 export const roundSchema = z.union([
   freeBuzzRoundSchema,
+  imageBuzzRoundSchema,
   audioBlindRoundSchema,
   videoRoundSchema,
   quizRoundSchema,
@@ -114,6 +132,7 @@ export const roundSchema = z.union([
 export type QuizRound = z.infer<typeof quizRoundSchema>;
 export type VideoRound = z.infer<typeof videoRoundSchema>;
 export type FreeBuzzRound = z.infer<typeof freeBuzzRoundSchema>;
+export type ImageBuzzRound = z.infer<typeof imageBuzzRoundSchema>;
 export type AudioBlindRound = z.infer<typeof audioBlindRoundSchema>;
 export type PackRound = z.infer<typeof roundSchema>;
 export type QuizQuestion = z.infer<typeof questionSchema>;
@@ -125,6 +144,10 @@ export function isVideoRound(r: PackRound): r is VideoRound {
 
 export function isFreeBuzzRound(r: PackRound): r is FreeBuzzRound {
   return (r as { kind?: string }).kind === "free_buzz";
+}
+
+export function isImageBuzzRound(r: PackRound): r is ImageBuzzRound {
+  return (r as { kind?: string }).kind === "image_buzz";
 }
 
 export function isAudioBlindRound(r: PackRound): r is AudioBlindRound {
@@ -142,7 +165,7 @@ export type QuizPack = z.infer<typeof quizPackSchema>;
 
 function validatePackInvariants(parsed: QuizPack): void {
   for (const r of parsed.rounds) {
-    if (isVideoRound(r) || isFreeBuzzRound(r) || isAudioBlindRound(r)) continue;
+    if (isVideoRound(r) || isFreeBuzzRound(r) || isImageBuzzRound(r) || isAudioBlindRound(r)) continue;
     for (const q of r.questions) {
       if (q.correctIndex >= q.choices.length) {
         throw new Error(`Question ${q.id}: correctIndex out of bounds`);

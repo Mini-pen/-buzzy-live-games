@@ -70,6 +70,23 @@ const audioBlindPack: QuizPack = {
   ],
 };
 
+const imageBuzzPack: QuizPack = {
+  id: "ib-v1",
+  title: "Images",
+  version: 1,
+  rounds: [
+    {
+      kind: "image_buzz",
+      id: "ib",
+      title: "Visuels",
+      slides: [
+        { id: "s1", imageUrl: "/games/a.png", prompt: "Décris" },
+        { id: "s2", imageUrl: "/games/b.png" },
+      ],
+    },
+  ],
+};
+
 function partyStub(over: Partial<Party>): Party {
   const base: Party = {
     id: "party-uuid",
@@ -125,6 +142,7 @@ describe("partySnapshotWithGame", () => {
     ["vid", videoRoundPack],
     ["free", freeBuzzPack],
     ["aud", audioBlindPack],
+    ["imgb", imageBuzzPack],
   ]);
 
   test("quiz host snapshot includes correct index", () => {
@@ -164,6 +182,25 @@ describe("partySnapshotWithGame", () => {
     if (s.gameBoard?.kind !== "video") throw new Error("expected video");
     expect(s.gameBoard.replaySerial).toBe(3);
     expect(s.gameBoard.videoUrl).toContain("example.com");
+  });
+
+  test("image_buzz shows slide without quiz choices payload", () => {
+    const party = partyStub({
+      state: "round_active",
+      currentRoundIndex: 0,
+      currentQuestionIndex: 0,
+      loadedPackId: "ib-v1",
+      hasStartedRound: true,
+      mancheScript: [quizMancheOverPack("imgb", "mid-img")],
+      activeMancheId: "mid-img",
+    });
+    const s = partySnapshotWithGame(party, packs, "player");
+    expect(s.gameBoard?.kind).toBe("image_buzz");
+    if (s.gameBoard?.kind !== "image_buzz") throw new Error("image_buzz");
+    expect(s.gameBoard.imageUrl).toBe("/games/a.png");
+    expect(s.gameBoard.slideIndexHuman).toBe(1);
+    expect(s.gameBoard.slideCount).toBe(2);
+    expect(s.gameBoard.prompt).toBe("Décris");
   });
 
   test("audio blind hides reveal from players", () => {
