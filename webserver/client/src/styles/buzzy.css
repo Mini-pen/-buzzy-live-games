@@ -675,6 +675,16 @@ html, body {
   width: 100%;
   margin: 8px 0 0;
 }
+.bz-app .bz-blind-remote-audio-hint {
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--bz-muted);
+  border-radius: var(--bz-r-md);
+  border: 1px dashed var(--bz-line);
+  background: color-mix(in oklab, var(--bz-muted) 8%, transparent);
+}
 .bz-app .bz-free-buzz-lead {
   margin: 0;
   font-size: clamp(16px, 2.8vw, 20px);

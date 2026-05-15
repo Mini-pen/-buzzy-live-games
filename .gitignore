@@ -4,3 +4,8 @@ webserver/node_modules/
 webserver/dist/
 *.log
 .DS_Store
+# * MP3 blobs mirrored from repo-root `sounds/` for local dev (`scripts/sync-games-sounds.sh`) — Docker copies from `sounds/` at build.
+games/sounds/buzzers/
+games/sounds/good/
+games/sounds/bad/
+games/sounds/others/

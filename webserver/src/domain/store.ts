@@ -2,6 +2,8 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 
 import { nanoid } from "nanoid";
 
+import type { LoadedBuzzSoundCatalog } from "../games/buzzSoundCatalog.js";
+import { defaultBuzzSoundPolicyFromCatalog } from "../games/buzzSoundCatalog.js";
 import type { QuizPack } from "../games/pack.js";
 import { isAudioBlindRound, isFreeBuzzRound, isVideoRound } from "../games/pack.js";
 import { parseAvatarKeyOrDefault, requireParsedAvatarKey } from "../avatars/catalog.js";
@@ -17,7 +19,9 @@ export interface CreatePartyOpts {
   allowTeamChange: boolean;
 }
 
-export type PartyNotifier = (partyId: string, party: Party) => void;
+export type PartyNotifyMeta = undefined | { kind: "buzz_fx"; playerId: string };
+
+export type PartyNotifier = (partyId: string, party: Party, meta?: PartyNotifyMeta) => void;
 
 function inferChatAllows(party: Party): boolean {
   return party.state === "lobby" || party.state === "between_rounds";
@@ -28,7 +32,10 @@ export class PartyStore {
 
   private readonly indexByJoinCode = new Map<string, string>();
 
-  constructor(private readonly notify: PartyNotifier) {}
+  constructor(
+    private readonly notify: PartyNotifier,
+    private readonly buzzCatalog: LoadedBuzzSoundCatalog,
+  ) {}
 
   sweep(maxAgeMs: number, now = Date.now()): number {
     let removed = 0;
@@ -51,6 +58,49 @@ export class PartyStore {
 
   broadcast(party: Party): void {
     this.notify(party.id, party);
+  }
+
+  /** * Validates optional buzzer catalogue key ; falls back to catalog default when absent. */
+  normalizeBuzzerKey(raw: unknown): string {
+    if (raw === undefined || raw === null || (typeof raw === "string" && raw.trim() === "")) {
+      return this.buzzCatalog.defaultBuzzerKey;
+    }
+    const k = String(raw).trim();
+    if (!this.buzzCatalog.byKey.has(k)) {
+      throw Object.assign(new Error("Buzz sound inconnu."), { code: "BUZZ_SOUND_INVALID" });
+    }
+    return k;
+  }
+
+  adminUpdateBuzzSoundPolicy(
+    party: Party,
+    next: {
+      allowedGoodKeys: string[];
+      allowedBadKeys: string[];
+      playPlayerBuzzTone: boolean;
+      echoPlayerBuzzOnHost: boolean;
+    },
+  ): void {
+    if (next.allowedGoodKeys.length < 1 || next.allowedBadKeys.length < 1) {
+      throw Object.assign(new Error("Choisir au moins un son bon et un son mauvais."), {
+        code: "BAD_SOUND_POLICY",
+      });
+    }
+    const g = [...new Set(next.allowedGoodKeys)];
+    const b = [...new Set(next.allowedBadKeys)];
+    for (const key of [...g, ...b]) {
+      if (!this.buzzCatalog.byKey.has(key)) {
+        throw Object.assign(new Error("Buzz sound inconnu."), { code: "BUZZ_SOUND_INVALID" });
+      }
+    }
+    party.buzzSound = {
+      allowedGoodKeys: g,
+      allowedBadKeys: b,
+      playPlayerBuzzTone: next.playPlayerBuzzTone,
+      echoPlayerBuzzOnHost: next.echoPlayerBuzzOnHost,
+    };
+    this.touch(party);
+    this.broadcast(party);
   }
 
   private touch(party: Party): void {
@@ -82,6 +132,7 @@ export class PartyStore {
     if (this.indexByJoinCode.has(joinCode)) {
       throw new Error("JOIN_CODE_EXHAUSTED");
     }
+    const pol = defaultBuzzSoundPolicyFromCatalog(this.buzzCatalog);
     const party: Party = {
       id: randomUUID(),
       joinCode,
@@ -103,6 +154,13 @@ export class PartyStore {
       currentQuestionIndex: null,
       loadedPackId: null,
       videoReplaySerial: 0,
+      allowPlayerAudioControl: false,
+      buzzSound: {
+        allowedGoodKeys: pol.allowedGoodKeys,
+        allowedBadKeys: pol.allowedBadKeys,
+        playPlayerBuzzTone: true,
+        echoPlayerBuzzOnHost: true,
+      },
       mancheScript: [],
       activeMancheId: null,
     };
@@ -117,6 +175,7 @@ export class PartyStore {
     displayNameRaw: string,
     teamIdRaw: unknown,
     avatarKeyRaw?: unknown,
+    buzzSoundKeyRaw?: unknown,
   ): { party: Party; player: Player } {
     const party =
       this.getByJoinCode(joinCodeRaw.trim()) ??
@@ -124,7 +183,13 @@ export class PartyStore {
     if (!party) {
       throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
     }
-    const player = this.joinPlayer(party, displayNameRaw, teamIdRaw, avatarKeyRaw);
+    const player = this.joinPlayer(
+      party,
+      displayNameRaw,
+      teamIdRaw,
+      avatarKeyRaw,
+      buzzSoundKeyRaw,
+    );
     return { party, player };
   }
 
@@ -134,6 +199,7 @@ export class PartyStore {
     displayNameRaw: string,
     teamIdRaw: unknown,
     avatarKeyRaw: unknown | undefined,
+    buzzSoundKeyRaw?: unknown | undefined,
   ): Player {
     const canonical = this.parties.get(party.id);
     if (!canonical) {
@@ -162,10 +228,12 @@ export class PartyStore {
         code: "AVATAR_CATALOG_EMPTY",
       });
     }
+    const buzzSoundKey = this.normalizeBuzzerKey(buzzSoundKeyRaw);
     const player: Player = {
       id: randomUUID(),
       displayName,
       avatarKey: avatarKeyResolved,
+      buzzSoundKey,
       teamId: teamRes.teamId,
       score: 0,
       joinedAt: Date.now(),
@@ -198,6 +266,7 @@ export class PartyStore {
       displayName?: string | undefined;
       teamId?: number | null | undefined;
       avatarKey?: string | undefined;
+      buzzSoundKey?: string | undefined;
     },
   ): Player {
     const player = party.players.get(playerId);
@@ -232,6 +301,14 @@ export class PartyStore {
           throw Object.assign(new Error("FORBIDDEN"), { code: "FORBIDDEN" });
         player.avatarKey = nextKey;
       }
+    }
+
+    if (typeof body.buzzSoundKey === "string") {
+      if (!inferChatAllows(party)) {
+        throw Object.assign(new Error("BAD_PHASE"), { code: "BAD_PHASE" });
+      }
+      const nk = this.normalizeBuzzerKey(body.buzzSoundKey);
+      if (nk !== player.buzzSoundKey) player.buzzSoundKey = nk;
     }
 
     this.touch(party);
@@ -295,6 +372,7 @@ export class PartyStore {
       party.buzzOrder.push(playerId);
       this.touch(party);
       this.broadcast(party);
+      this.notify(party.id, party, { kind: "buzz_fx", playerId });
     }
   }
 
@@ -351,6 +429,7 @@ export class PartyStore {
       } else if (isFreeBuzzRound(round)) {
         party.currentQuestionIndex = Math.min(Math.max(item.savedQuestionIndex, 0), 100_000);
       } else if (isAudioBlindRound(round)) {
+        party.allowPlayerAudioControl = false;
         party.currentQuestionIndex = Math.min(
           Math.max(item.savedQuestionIndex, 0),
           Math.max(round.tracks.length - 1, 0),
@@ -453,7 +532,7 @@ export class PartyStore {
     this.broadcast(party);
   }
 
-  /** * Host “next cue”: next quiz question in the round, or replay current video round. */
+  /** * Host “next cue”: next quiz / blind track / oral step; skips advancing for pure video clips (réutiliser rejouer). */
   adminAdvanceCue(party: Party, pack: QuizPack): void {
     if (party.state !== "round_active") {
       throw Object.assign(new Error("BAD_PHASE"), { code: "BAD_PHASE" });
@@ -518,6 +597,57 @@ export class PartyStore {
       new Error("Fin des questions de cette manche — passez à la suivante ou mettez en pause."),
       { code: "ROUND_EXHAUSTED" },
     );
+  }
+
+  /**
+   * * Re-syncs playback for the **same** cue (video blind segment or blind-test track index)
+   *   without advancing the question/track index (`videoReplaySerial` bump).
+   */
+  adminReplayMediaCue(party: Party, pack: QuizPack): void {
+    if (party.state !== "round_active") {
+      throw Object.assign(new Error("BAD_PHASE"), { code: "BAD_PHASE" });
+    }
+    const ri = party.currentRoundIndex;
+    if (ri === null || ri < 0 || ri >= pack.rounds.length) {
+      throw Object.assign(new Error("BAD_ROUND"), { code: "BAD_ROUND" });
+    }
+    const round = pack.rounds[ri];
+    if (!(isVideoRound(round) || isAudioBlindRound(round))) {
+      throw Object.assign(
+        new Error("Relecture média disponible uniquement pour une vidéo ou un blind audio."),
+        { code: "MEDIA_REPLAY_NOT_APPLICABLE" },
+      );
+    }
+    party.videoReplaySerial += 1;
+    party.buzzWindowOpen = false;
+    party.buzzOrder = [];
+    this.syncActiveQuizProgressIntoScriptItem(party);
+    this.touch(party);
+    this.broadcast(party);
+  }
+
+  adminSetAllowPlayerAudioControl(
+    party: Party,
+    pack: QuizPack,
+    allowed: boolean,
+  ): void {
+    if (party.state !== "round_active") {
+      throw Object.assign(new Error("BAD_PHASE"), { code: "BAD_PHASE" });
+    }
+    const ri = party.currentRoundIndex;
+    if (ri === null || ri < 0 || ri >= pack.rounds.length) {
+      throw Object.assign(new Error("BAD_ROUND"), { code: "BAD_ROUND" });
+    }
+    const round = pack.rounds[ri];
+    if (!isAudioBlindRound(round)) {
+      throw Object.assign(
+        new Error("Réglage blind audio hors manche blind test."),
+        { code: "PLAYER_AUDIO_FLAG_NOT_APPLICABLE" },
+      );
+    }
+    party.allowPlayerAudioControl = allowed;
+    this.touch(party);
+    this.broadcast(party);
   }
 
   adminAwardPoints(party: Party, playerId: string, delta: number): void {

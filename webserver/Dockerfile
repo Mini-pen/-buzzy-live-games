@@ -8,6 +8,11 @@ FROM deps AS build
 WORKDIR /app/webserver
 COPY webserver/ ./
 COPY games /app/games
+# * Audio catalogue lives under `/app/games/sounds/catalog.json`; binaries come from repo `sounds/`.
+COPY sounds/buzzers /app/games/sounds/buzzers
+COPY sounds/good /app/games/sounds/good
+COPY sounds/bad /app/games/sounds/bad
+COPY sounds/others /app/games/sounds/others
 ENV GAMES_DIR=/app/games
 RUN npm run build
 

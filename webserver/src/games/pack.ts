@@ -66,9 +66,31 @@ export const freeBuzzRoundSchema = z
   })
   .strict();
 
+/** * Path suffix must look like an audio asset (streaming URLs without suffix may use localhost HTTP for dev). */
+function pathnameEndsWithKnownAudioSuffix(pathWithoutQuery: string): boolean {
+  const p = pathWithoutQuery.trim();
+  return /\.(?:mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/iu.test(p);
+}
+
+export const audioPublicUrlSchema = optionalPublicUrlSchema.superRefine((s, ctx) => {
+  if (/^http:\/\/(localhost|127\.0\.0\.1)/iu.test(s)) return;
+  const qIx = s.indexOf("?");
+  const withoutQuery = qIx >= 0 ? s.slice(0, qIx) : s;
+  let pathPortion = withoutQuery;
+  try {
+    if (!s.startsWith("/")) pathPortion = new URL(s).pathname;
+  } catch {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "AUDIO_PUBLIC_URL_REJECTED" });
+    return;
+  }
+  if (!pathnameEndsWithKnownAudioSuffix(pathPortion)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "AUDIO_PUBLIC_URL_REJECTED" });
+  }
+});
+
 const audioBlindTrackSchema = z.object({
   id: z.string().min(1),
-  audioUrl: optionalPublicUrlSchema,
+  audioUrl: audioPublicUrlSchema,
   revealTitle: z.string().min(1),
   revealArtist: z.string().min(1).optional(),
 });

@@ -33,10 +33,20 @@ export interface Player {
   displayName: string;
   /** * Basename under `/avatars/` (see `webserver/client/public/avatars`; built to `dist/client/avatars`). */
   avatarKey: string;
+  /** * Key from `/games/sounds/catalog.json`; played on buzz (+ echo on animateur si activé). */
+  buzzSoundKey: string;
   /** * 1-based team index when teams are enabled; otherwise null. */
   teamId: number | null;
   score: number;
   joinedAt: number;
+}
+
+/** * Buzzer SFX routing for a party (good/bad palettes + playback toggles). */
+export interface PartyBuzzSoundPolicy {
+  allowedGoodKeys: string[];
+  allowedBadKeys: string[];
+  playPlayerBuzzTone: boolean;
+  echoPlayerBuzzOnHost: boolean;
 }
 
 export interface Party {
@@ -64,6 +74,12 @@ export interface Party {
   loadedPackId: string | null;
   /** * Increments when replaying embedded media or switching surfaces. */
   videoReplaySerial: number;
+  /**
+   * * During blind test rounds: lets players and broadcast use local `<audio controls>` ;
+   *   false by default (sound expected from host room only).
+   */
+  allowPlayerAudioControl: boolean;
+  buzzSound: PartyBuzzSoundPolicy;
   /** * Host-defined ordered manches; index 0 is launched by « Play ». */
   mancheScript: MancheCatalogItem[];
   /** * Matches `mancheScript[0].id` while a manche is actively running. */
@@ -171,6 +187,8 @@ export interface PartyPublicSnapshot {
     avatarUrl: string;
     teamId: number | null;
     score: number;
+    /** * Catalog key for buzz SFX (`/games/sounds/catalog.json`). */
+    buzzSoundKey: string;
   }>;
   teamScores: Record<string, number>;
   chatTail: ChatEntry[];
@@ -181,6 +199,21 @@ export interface PartyPublicSnapshot {
   gameBoard: PartyGameBoardSurface | null;
   mancheScript: MancheCatalogItem[];
   activeMancheId: string | null;
+  /**
+   * * When true during `audio_blind`, clients receive `audioUrl` and may use native audio controls ;
+   *   animateur diffusion par défaut (false).
+   */
+  allowPlayerAudioControl: boolean;
+  /** * Buzzer UX flags (voir réglages détaillés côté hôte uniquement dans le tableau animateur). */
+  soundBuzzerPublic: {
+    playOnPlayerDevice: boolean;
+    echoOnHostDevice: boolean;
+  };
+  /** * Present only when the snapshot targets the authenticated animateur (`audience === "host"`). */
+  soundBuzzerHostConfig?: {
+    allowedGoodKeys: string[];
+    allowedBadKeys: string[];
+  };
 }
 
 /** * Stored inside the player JWT (`pid` mandatory; Fastify validates `sub` as player id). */

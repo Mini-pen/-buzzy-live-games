@@ -1,0 +1,263 @@
+{
+  "defaultBuzzerKey": "bang",
+  "sounds": [
+    {
+      "key": "beavis_oh_yeah",
+      "label": "beavis-oh-yeah",
+      "file": "good/beavis-oh-yeah.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "check_mark",
+      "label": "check-mark",
+      "file": "good/check-mark.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "correct_answer",
+      "label": "correct-answer",
+      "file": "good/correct-answer.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "ding",
+      "label": "ding",
+      "file": "good/ding.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "dj_airhorn_sound_effect",
+      "label": "dj-airhorn-sound-effect",
+      "file": "good/dj-airhorn-sound-effect.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "mamma_mia_caqretk",
+      "label": "mamma-mia caQRETK",
+      "file": "good/mamma-mia_caQRETK.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "mlg_airhorn",
+      "label": "mlg-airhorn",
+      "file": "good/mlg-airhorn.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "soldiersvoices_sfxb",
+      "label": "soldiersvoices sfxb",
+      "file": "good/soldiersvoices_sfxb.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "super_mario_bros_3_coin_sound_effect",
+      "label": "super-mario-bros-3-coin-sound-effect",
+      "file": "good/super-mario-bros-3-coin-sound-effect.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "yeah_boi_sound_effect",
+      "label": "yeah-boi-sound-effect",
+      "file": "good/yeah-boi-sound-effect.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "yee_haw",
+      "label": "yee-haw",
+      "file": "good/yee-haw.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "yippee",
+      "label": "yippee",
+      "file": "good/yippee.mp3",
+      "pool": "good"
+    },
+    {
+      "key": "buzzer_error",
+      "label": "buzzer-error",
+      "file": "bad/buzzer-error.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "door_slam",
+      "label": "door-slam",
+      "file": "bad/door-slam.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "downer_noise",
+      "label": "downer noise",
+      "file": "bad/downer_noise.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "glass_breaking_sound_effect_wlzsiyn",
+      "label": "glass-breaking-sound-effect wLZSIYn",
+      "file": "bad/glass-breaking-sound-effect_wLZSIYn.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "jp_wrong_answer_kuizubu_zheng_jie_1",
+      "label": "jp-wrong-answer-kuizubu-zheng-jie-1",
+      "file": "bad/jp-wrong-answer-kuizubu-zheng-jie-1.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "muhehehehe",
+      "label": "muhehehehe",
+      "file": "bad/muhehehehe.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "new_super_mario_bros_death",
+      "label": "new super mario bros death",
+      "file": "bad/new_super_mario_bros_death.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "oh_nononono",
+      "label": "oh-nononono",
+      "file": "bad/oh-nononono.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "record_scratch_2",
+      "label": "record-scratch-2",
+      "file": "bad/record-scratch-2.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "ringtone_7",
+      "label": "ringtone 7",
+      "file": "bad/ringtone_7.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "studio_audience_awwww_sound_fx",
+      "label": "studio-audience-awwww-sound-fx",
+      "file": "bad/studio-audience-awwww-sound-fx.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "undertale_sound_effect_battle_encounter",
+      "label": "undertale-sound-effect-battle-encounter",
+      "file": "bad/undertale-sound-effect-battle-encounter.mp3",
+      "pool": "bad"
+    },
+    {
+      "key": "bang",
+      "label": "BANG",
+      "file": "buzzers/BANG.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "gong",
+      "label": "Gong",
+      "file": "buzzers/Gong.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "hop",
+      "label": "Hop",
+      "file": "buzzers/Hop.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "paf",
+      "label": "PAF",
+      "file": "buzzers/PAF.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "pang",
+      "label": "Pang",
+      "file": "buzzers/Pang.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "tiuuut",
+      "label": "Tiuuut",
+      "file": "buzzers/Tiuuut.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "boboing",
+      "label": "boboing",
+      "file": "buzzers/boboing.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "bweeeeh",
+      "label": "bweeeeh",
+      "file": "buzzers/bweeeeh.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "miaou",
+      "label": "miaou",
+      "file": "buzzers/miaou.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "mooooh",
+      "label": "mooooh",
+      "file": "buzzers/mooooh.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "poueeet",
+      "label": "poueeet",
+      "file": "buzzers/poueeet.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "prout",
+      "label": "prout",
+      "file": "buzzers/prout.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "puit",
+      "label": "puit",
+      "file": "buzzers/puit.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "reload",
+      "label": "reload",
+      "file": "buzzers/reload.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "splash",
+      "label": "splash",
+      "file": "buzzers/splash.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "alert_sound",
+      "label": "alert sound",
+      "file": "others/alert_sound.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "muda_muda_muda_sound_effect",
+      "label": "muda muda muda sound effect",
+      "file": "others/muda_muda_muda_sound_effect.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "nuclear_alarm_siren",
+      "label": "nuclear-alarm-siren",
+      "file": "others/nuclear-alarm-siren.mp3",
+      "pool": "neutral"
+    },
+    {
+      "key": "suspense_build_up",
+      "label": "suspense-build-up",
+      "file": "others/suspense-build-up.mp3",
+      "pool": "neutral"
+    }
+  ]
+}

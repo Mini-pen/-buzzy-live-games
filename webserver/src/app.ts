@@ -8,6 +8,7 @@ import Fastify from "fastify";
 
 import type { AppConfig } from "./config.js";
 import type { PartyStore } from "./domain/store.js";
+import type { LoadedBuzzSoundCatalog } from "./games/buzzSoundCatalog.js";
 import type { QuizPack } from "./games/pack.js";
 import { registerPartyRoutes } from "./http/routesParty.js";
 
@@ -15,6 +16,7 @@ export interface BuildDeps {
   config: AppConfig;
   store: PartyStore;
   packs: Map<string, QuizPack>;
+  buzzCatalog: LoadedBuzzSoundCatalog;
 }
 
 export async function buildApp(opts: BuildDeps): Promise<ReturnType<typeof Fastify>> {
@@ -36,6 +38,7 @@ export async function buildApp(opts: BuildDeps): Promise<ReturnType<typeof Fasti
     store: opts.store,
     packs: opts.packs,
     config: opts.config,
+    buzzCatalog: opts.buzzCatalog,
   });
 
   await app.register(fastifyStatic, {

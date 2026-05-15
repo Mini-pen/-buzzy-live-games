@@ -133,7 +133,8 @@ function deriveGameBoard(
       roundNumberHuman: ri + 1,
       trackIndexHuman: qi + 1,
       trackCount: round.tracks.length,
-      audioUrl: t.audioUrl,
+      audioUrl:
+        audience === "host" || party.allowPlayerAudioControl ? t.audioUrl : "",
       replaySerial: party.videoReplaySerial,
     };
     if (audience === "host") {
@@ -174,8 +175,18 @@ export function partySnapshotWithGame(
 ): PartyPublicSnapshot {
   const pack = quizPackFromLoadedId(packs, party.loadedPackId);
   const base = publicSnapshotForParty(party);
+  const hostSound =
+    audience === "host"
+      ? {
+          soundBuzzerHostConfig: {
+            allowedGoodKeys: [...party.buzzSound.allowedGoodKeys],
+            allowedBadKeys: [...party.buzzSound.allowedBadKeys],
+          },
+        }
+      : {};
   return {
     ...base,
+    ...hostSound,
     gameBoard: deriveGameBoard(party, pack, audience),
   };
 }

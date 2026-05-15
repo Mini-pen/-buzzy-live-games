@@ -92,6 +92,13 @@ function partyStub(over: Partial<Party>): Party {
     currentQuestionIndex: null,
     loadedPackId: null,
     videoReplaySerial: 0,
+    allowPlayerAudioControl: false,
+    buzzSound: {
+      allowedGoodKeys: ["g1"],
+      allowedBadKeys: ["b1"],
+      playPlayerBuzzTone: true,
+      echoPlayerBuzzOnHost: true,
+    },
     mancheScript: [],
     activeMancheId: null,
   };
@@ -173,10 +180,41 @@ describe("partySnapshotWithGame", () => {
     expect(play.gameBoard?.kind).toBe("audio_blind");
     if (play.gameBoard?.kind !== "audio_blind") throw new Error("audio");
     expect(play.gameBoard.revealTitle).toBeUndefined();
+    expect(play.gameBoard.audioUrl).toBe("");
     const host = partySnapshotWithGame(party, packs, "host");
     if (host.gameBoard?.kind !== "audio_blind") throw new Error("audio host");
     expect(host.gameBoard.revealTitle).toBe("Titre B");
     expect(host.gameBoard.revealArtist).toBe("Art B");
+  });
+
+  test("snapshot carries allowPlayerAudioControl", () => {
+    const party = partyStub({
+      state: "round_active",
+      currentRoundIndex: 0,
+      currentQuestionIndex: 0,
+      loadedPackId: "ab-v1",
+      hasStartedRound: true,
+      allowPlayerAudioControl: true,
+      mancheScript: [quizMancheOverPack("aud", "mid-a")],
+      activeMancheId: "mid-a",
+    });
+    expect(partySnapshotWithGame(party, packs, "player").allowPlayerAudioControl).toBe(true);
+  });
+
+  test("audio blind exposes stream URL to players when control is allowed", () => {
+    const party = partyStub({
+      state: "round_active",
+      currentRoundIndex: 0,
+      currentQuestionIndex: 0,
+      loadedPackId: "ab-v1",
+      hasStartedRound: true,
+      allowPlayerAudioControl: true,
+      mancheScript: [quizMancheOverPack("aud", "mid-a")],
+      activeMancheId: "mid-a",
+    });
+    const play = partySnapshotWithGame(party, packs, "player");
+    if (play.gameBoard?.kind !== "audio_blind") throw new Error("audio");
+    expect(play.gameBoard.audioUrl).toBe("/games/a.mp3");
   });
 
   test("omits gameBoard when no round manche is targeted", () => {

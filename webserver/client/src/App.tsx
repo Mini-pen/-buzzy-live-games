@@ -106,12 +106,15 @@ interface PartySnapshot {
   maxTeams: number | null;
   closedAfterStart: boolean;
   hasStartedRound: boolean;
+  /** * When true during blind test, players and broadcast get local `<audio controls>`. */
+  allowPlayerAudioControl?: boolean;
   players: Array<{
     id: string;
     displayName: string;
     avatarUrl: string;
     teamId: number | null;
     score: number;
+    buzzSoundKey: string;
   }>;
   teamScores: Record<string, number>;
   chatTail: Array<{ id: string; displayName: string; text: string; at: number }>;
@@ -120,6 +123,14 @@ interface PartySnapshot {
   gameBoard?: PartyGameBoardSurface | null;
   mancheScript: MancheCatalogItemView[];
   activeMancheId: string | null;
+  soundBuzzerPublic?: {
+    playOnPlayerDevice: boolean;
+    echoOnHostDevice: boolean;
+  };
+  soundBuzzerHostConfig?: {
+    allowedGoodKeys: string[];
+    allowedBadKeys: string[];
+  };
 }
 
 /** * Compact label for animateur lists. */
@@ -433,6 +444,18 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const text = await r.text();
   if (!r.ok) throw new Error(text || `${r.status}`);
   return text === "" ? (undefined as T) : (JSON.parse(text) as T);
+}
+
+/** * Plays a short SFX URL (buzzer / animateur echo). Best-effort ; ignores autoplay blocks. */
+function playSfxUrl(url: string | undefined | null): void {
+  const u = typeof url === "string" ? url.trim() : "";
+  if (u === "") return;
+  try {
+    const audioEl = new Audio(u);
+    void audioEl.play().catch(() => {});
+  } catch {
+    /* noop */
+  }
 }
 
 function Shell(props: {
@@ -866,8 +889,15 @@ function GameBoardPanel(props: {
   board: PartyGameBoardSurface | null;
   partyState: string;
   revealCorrect: boolean;
+  /** * Host prévisualisation blind : lectures locales toujours autorisées. */
+  blindHostPresenter?: boolean;
+  /** * Joueurs / diffusion : rejouer / play sur l’appareil seulement si l’animateur l’active. */
+  allowBlindPlaybackOnClients?: boolean;
 }): JSX.Element | null {
-  const { board, partyState, revealCorrect } = props;
+  const { board, partyState, revealCorrect, blindHostPresenter, allowBlindPlaybackOnClients } = props;
+
+  const blindClientsMayPlay =
+    blindHostPresenter === true || (allowBlindPlaybackOnClients ?? false) === true;
 
   if (board !== null && board.kind === "video") {
     return (
@@ -933,15 +963,23 @@ function GameBoardPanel(props: {
             {board.packTitle} · {board.roundTitle} — extrait {board.trackIndexHuman}/{board.trackCount}
           </span>
         </div>
-        <audio
-          key={board.replaySerial}
-          controls
-          className="bz-board-audio"
-          preload="metadata"
-          src={board.audioUrl}
-        >
-          Lecture audio non supportée.
-        </audio>
+        {blindClientsMayPlay ? (
+          <audio
+            key={board.replaySerial}
+            controls
+            className="bz-board-audio"
+            preload="metadata"
+            src={board.audioUrl}
+          >
+            Lecture audio non supportée.
+          </audio>
+        ) : (
+          <p className="bz-blind-remote-audio-hint">
+            Défaut animateur&nbsp;: pas de flux audio sur cet appareil — l&apos;extrait passe par les enceintes ou
+            l&apos;écran géant. Ton animateur peut activer lecture et rejouer ici depuis son tableau si besoin (jeu
+            en solo / écouteurs).
+          </p>
+        )}
         {showReveal ? (
           <div className="bz-audio-host-reveal">
             <p style={{ margin: "0 0 6px", fontSize: 15 }}>
@@ -961,7 +999,9 @@ function GameBoardPanel(props: {
           </div>
         ) : (
           <p className="bz-board-embed-hint bz-muted">
-            Écoute l&apos;extrait. Titre et artiste ne sont pas affichés ici pour les joueurs ni en projection.
+            {blindClientsMayPlay
+              ? "Écoute l&apos;extrait. Titre et artiste ne sont pas affichés ici pour les joueurs ni en projection."
+              : "Titre et artiste ne sont montrés nulle part tant que tu ne les annonces pas — la fiche réservée animateur liste la bonne réponse."}
           </p>
         )}
       </section>
@@ -1271,12 +1311,22 @@ function Play(): JSX.Element {
     if (!pid || jwt === null || jwt === "") return;
     setErr(null);
     try {
-      const snapRes = await fetchJson<PartySnapshot>(`/api/parties/${pid}/me/buzz`, {
+      const res = await fetchJson<{
+        snapshot: PartySnapshot;
+        buzzToneUrl?: string;
+      }>(`/api/parties/${pid}/me/buzz`, {
         method: "POST",
         headers: { Authorization: `Bearer ${jwt}` },
         body: JSON.stringify({}),
       });
-      setSnap(snapRes);
+      setSnap(res.snapshot);
+      if (
+        typeof res.buzzToneUrl === "string" &&
+        res.buzzToneUrl.length > 0 &&
+        res.snapshot.soundBuzzerPublic?.playOnPlayerDevice === true
+      ) {
+        playSfxUrl(res.buzzToneUrl);
+      }
     } catch (e3) {
       setErr(e3 instanceof Error ? e3.message : "Buzz refusé");
     }
@@ -1372,6 +1422,7 @@ function Play(): JSX.Element {
         board={snap.gameBoard ?? null}
         partyState={snap.state}
         revealCorrect={false}
+        allowBlindPlaybackOnClients={snap.allowPlayerAudioControl === true}
       />
 
       <section className="bz-buzz-hero">
@@ -1389,10 +1440,14 @@ function Play(): JSX.Element {
             <span className="bz-pill">buzzer fermé</span>
             <p>
               {snap.gameBoard !== null &&
-              (snap.gameBoard.kind === "video" ||
-                snap.gameBoard.kind === "youtube" ||
-                snap.gameBoard.kind === "audio_blind")
-                ? "Regarde ou écoute — l'animateur peut enchaîner l'extrait pour tout le monde."
+              snap.gameBoard.kind === "audio_blind" &&
+              snap.allowPlayerAudioControl !== true
+                ? "Blind test : pas de lecteur audio sur ton téléphone tant que l’animateur diffuse en salle uniquement."
+                : snap.gameBoard !== null &&
+                  (snap.gameBoard.kind === "video" ||
+                    snap.gameBoard.kind === "youtube" ||
+                    snap.gameBoard.kind === "audio_blind")
+                  ? "Regarde ou écoute — l’animateur peut enchaîner l’extrait pour tout le monde."
                 : snap.gameBoard !== null && snap.gameBoard.kind === "free_buzz"
                   ? "Pas de choix à l'écran : réponds à voix quand l’animateur ouvre le buzzer."
                 : snap.state === "lobby"
@@ -1575,9 +1630,14 @@ function Admin(): JSX.Element {
       auth: { partyId: pid, bearer, role: "admin" },
     });
     const onSnap = (p: PartySnapshot) => setSnap(p);
+    const onBuzzFx = (payload: { url: string }) => {
+      playSfxUrl(payload.url);
+    };
     s.on("party:patch", onSnap);
+    s.on("party:buzz_fx", onBuzzFx);
     return (): void => {
       s.off("party:patch", onSnap);
+      s.off("party:buzz_fx", onBuzzFx);
       s.disconnect();
     };
   }, [pid, bearer, adminBootstrap]);
@@ -1756,6 +1816,31 @@ function Admin(): JSX.Element {
     }
   }, [callHostSnapshot, hostBasePath]);
 
+  const onHostCueReplay = useCallback(async (): Promise<void> => {
+    setErr(null);
+    try {
+      const p = await callHostSnapshot(`${hostBasePath}/host/cue/replay`, "POST", {});
+      setSnap(p);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }, [callHostSnapshot, hostBasePath]);
+
+  const onHostPlayerAudioAllowed = useCallback(
+    async (allowed: boolean): Promise<void> => {
+      setErr(null);
+      try {
+        const p = await callHostSnapshot(`${hostBasePath}/host/player-audio-control`, "POST", {
+          allowed,
+        });
+        setSnap(p);
+      } catch (e10) {
+        setErr(e10 instanceof Error ? e10.message : String(e10));
+      }
+    },
+    [callHostSnapshot, hostBasePath],
+  );
+
   const onHostChatSend = useCallback(async (textOverride?: string): Promise<void> => {
     const payload = (typeof textOverride === "string" ? textOverride : hostChat).trim();
     if (payload === "") return;
@@ -1894,8 +1979,25 @@ function Admin(): JSX.Element {
     snap.activeMancheId === null
       ? undefined
       : snap.mancheScript.find((m) => m.id === snap.activeMancheId);
-  const showQuizCueButtons =
-    snap.state === "round_active" && activeMancheEntry?.kind === "pack_quiz";
+  const hostGameBoard = snap.gameBoard ?? null;
+  const showMediaReplayCue =
+    snap.state === "round_active" &&
+    activeMancheEntry?.kind === "pack_quiz" &&
+    hostGameBoard !== null &&
+    (hostGameBoard.kind === "video" || hostGameBoard.kind === "audio_blind");
+
+  const showCueAdvanceButton =
+    snap.state === "round_active" &&
+    activeMancheEntry?.kind === "pack_quiz" &&
+    hostGameBoard !== null &&
+    hostGameBoard.kind !== "video";
+
+  const cueAdvanceLabel =
+    hostGameBoard !== null && hostGameBoard.kind === "audio_blind"
+      ? "Extrait suivant →"
+      : hostGameBoard !== null && hostGameBoard.kind === "free_buzz"
+        ? "Question suivante (oral) →"
+        : "Question suivante →";
 
   return (
     <Shell title={`Animateur · ${snap.joinCode}`} wide>
@@ -1960,6 +2062,7 @@ function Admin(): JSX.Element {
             board={snap.gameBoard ?? null}
             partyState={snap.state}
             revealCorrect
+            blindHostPresenter={snap.gameBoard?.kind === "audio_blind"}
           />
 
           <section className="bz-host-pack">
@@ -2077,9 +2180,36 @@ function Admin(): JSX.Element {
             >
               ⏹ Fermer & purger
             </button>
-            {showQuizCueButtons ? (
+            {snap.gameBoard?.kind === "audio_blind" ? (
+              <label
+                className="bz-host-blind-player-audio"
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  width: "100%",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={snap.allowPlayerAudioControl === true}
+                  onChange={(e) => void onHostPlayerAudioAllowed(e.target.checked)}
+                />
+                <span style={{ flex: "1", textAlign: "left", fontSize: 13, lineHeight: 1.35 }}>
+                  Blind test&nbsp;: autoriser lecture / rejouer sur les téléphones joueurs et sur la page diffusion
+                  (sinon tout le monde écoute seulement la sortie de ton poste animateur ou la sono).
+                </span>
+              </label>
+            ) : null}
+            {showMediaReplayCue ? (
+              <button type="button" onClick={() => void onHostCueReplay()}>
+                ↻ Rejouer l&apos;extrait (même média)
+              </button>
+            ) : null}
+            {showCueAdvanceButton ? (
               <button type="button" onClick={() => void onHostCueNext()}>
-                Question suivante →
+                {cueAdvanceLabel}
               </button>
             ) : null}
           </div>
@@ -2498,7 +2628,12 @@ function Broadcast(): JSX.Element {
         board !== null &&
         board.kind !== "quiz" &&
         board.kind !== "video" ? (
-          <GameBoardPanel board={board} partyState={snap.state} revealCorrect={false} />
+          <GameBoardPanel
+            board={board}
+            partyState={snap.state}
+            revealCorrect={false}
+            allowBlindPlaybackOnClients={snap.allowPlayerAudioControl === true}
+          />
         ) : null}
 
         {snap.state === "round_active" && board === null ? (

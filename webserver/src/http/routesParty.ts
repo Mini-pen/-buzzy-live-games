@@ -12,6 +12,8 @@ import type { PartyStore } from "../domain/store.js";
 import type { Party } from "../domain/types.js";
 import { partySnapshotWithGame, quizPackFromLoadedId } from "../domain/partySnapshotPresenter.js";
 import type { QuizPack } from "../games/pack.js";
+import type { LoadedBuzzSoundCatalog } from "../games/buzzSoundCatalog.js";
+import { resolveBuzzSoundPublicUrl } from "../games/buzzSoundCatalog.js";
 import { readBearer } from "./bearer.js";
 import { replyDomain } from "./replyDomain.js";
 import {
@@ -25,6 +27,7 @@ export interface PartyRouteDeps {
   store: PartyStore;
   packs: Map<string, QuizPack>;
   config: AppConfig;
+  buzzCatalog: LoadedBuzzSoundCatalog;
 }
 
 const createPartySchema = z
@@ -58,12 +61,14 @@ const joinBodySchema = z.object({
   displayName: z.string().min(2).max(48),
   teamId: z.number().int().min(1).max(500).nullable().optional(),
   avatarKey: z.string().min(1).max(48).optional(),
+  buzzSoundKey: z.string().min(1).max(64).optional(),
 });
 
 const patchSelfSchema = z.object({
   displayName: z.string().min(2).max(48).optional(),
   teamId: z.number().int().min(1).max(500).nullable().optional(),
   avatarKey: z.string().min(1).max(48).optional(),
+  buzzSoundKey: z.string().min(1).max(64).optional(),
 });
 
 const chatSchema = z.object({
@@ -76,6 +81,17 @@ const awardSchema = z.object({
 
 const buzzWindowSchema = z.object({
   open: z.boolean(),
+});
+
+const playerAudioAllowSchema = z.object({
+  allowed: z.boolean(),
+});
+
+const buzzSoundPolicySchema = z.object({
+  allowedGoodKeys: z.array(z.string().min(1).max(64)).min(1),
+  allowedBadKeys: z.array(z.string().min(1).max(64)).min(1),
+  playPlayerBuzzTone: z.boolean(),
+  echoPlayerBuzzOnHost: z.boolean(),
 });
 
 const mancheIdSchema = z.object({
@@ -130,7 +146,7 @@ export async function registerPartyRoutes(
   app: FastifyInstance,
   deps: PartyRouteDeps,
 ): Promise<void> {
-  const { store, packs, config } = deps;
+  const { store, packs, config, buzzCatalog } = deps;
 
   const snapPlayer = (party: Party): ReturnType<typeof partySnapshotWithGame> =>
     partySnapshotWithGame(party, packs, "player");
@@ -170,6 +186,16 @@ export async function registerPartyRoutes(
       key: entry.key,
       label: entry.label,
       url: avatarPublicRelativePath(entry.key),
+    })),
+  }));
+
+  app.get("/api/sounds", async () => ({
+    defaultBuzzerKey: buzzCatalog.defaultBuzzerKey,
+    sounds: buzzCatalog.sounds.map((s) => ({
+      key: s.key,
+      label: s.label,
+      pool: s.pool,
+      url: resolveBuzzSoundPublicUrl(s),
     })),
   }));
 
@@ -251,7 +277,13 @@ export async function registerPartyRoutes(
       try {
         const body = joinBodySchema.parse(req.body ?? {});
         const party = requireParty(store, req.params.partyId);
-        const player = store.joinPlayer(party, body.displayName, body.teamId, body.avatarKey);
+        const player = store.joinPlayer(
+          party,
+          body.displayName,
+          body.teamId,
+          body.avatarKey,
+          body.buzzSoundKey,
+        );
         const token = await app.jwt.sign({ pid: party.id, sub: player.id });
         return reply.status(201).send({
           playerId: player.id,
@@ -349,8 +381,16 @@ export async function registerPartyRoutes(
         if (partyId !== req.params.partyId)
           return reply.status(403).send({ error: "FORBIDDEN" });
         const party = requireParty(store, partyId);
+        const alreadyInQueue = party.buzzOrder.some((idBuzz) => idBuzz === playerId);
         store.buzz(party, playerId);
-        return snapPlayer(party);
+        const snapshot = snapPlayer(party);
+        let buzzToneUrl: string | undefined;
+        if (!alreadyInQueue && party.buzzSound.playPlayerBuzzTone) {
+          const plNow = party.players.get(playerId);
+          const sfx = plNow ? buzzCatalog.byKey.get(plNow.buzzSoundKey) : undefined;
+          if (sfx) buzzToneUrl = resolveBuzzSoundPublicUrl(sfx) || undefined;
+        }
+        return { snapshot, buzzToneUrl };
       } catch (err) {
         return replyDomain(reply, err);
       }
@@ -373,6 +413,68 @@ export async function registerPartyRoutes(
         store.adminAdvanceCue(party, loaded);
         return snapHost(party);
       } catch (err) {
+        return replyDomain(reply, err);
+      }
+    },
+  );
+
+  app.post<{ Params: { partyId: string } }>(
+    "/api/parties/:partyId/host/cue/replay",
+    async (req, reply) => {
+      try {
+        const party = requireParty(store, req.params.partyId);
+        const token = readBearer(req.headers.authorization);
+        if (!store.verifyAdminToken(party, token))
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        const loaded = quizPackFromLoadedId(packs, party.loadedPackId);
+        if (!loaded)
+          throw Object.assign(new Error("PACK_NOT_FOUND"), { code: "PACK_NOT_FOUND" });
+        store.adminReplayMediaCue(party, loaded);
+        return snapHost(party);
+      } catch (err) {
+        return replyDomain(reply, err);
+      }
+    },
+  );
+
+  app.post<{ Params: { partyId: string } }>(
+    "/api/parties/:partyId/host/player-audio-control",
+    async (req, reply) => {
+      try {
+        const body = playerAudioAllowSchema.parse(req.body ?? {});
+        const party = requireParty(store, req.params.partyId);
+        const token = readBearer(req.headers.authorization);
+        if (!store.verifyAdminToken(party, token))
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        const loaded = quizPackFromLoadedId(packs, party.loadedPackId);
+        if (!loaded)
+          throw Object.assign(new Error("PACK_NOT_FOUND"), { code: "PACK_NOT_FOUND" });
+        store.adminSetAllowPlayerAudioControl(party, loaded, body.allowed);
+        return snapHost(party);
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          return reply.status(400).send({ error: "VALIDATION", issues: err.issues });
+        }
+        return replyDomain(reply, err);
+      }
+    },
+  );
+
+  app.post<{ Params: { partyId: string } }>(
+    "/api/parties/:partyId/host/sound-policy",
+    async (req, reply) => {
+      try {
+        const body = buzzSoundPolicySchema.parse(req.body ?? {});
+        const party = requireParty(store, req.params.partyId);
+        const token = readBearer(req.headers.authorization);
+        if (!store.verifyAdminToken(party, token))
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        store.adminUpdateBuzzSoundPolicy(party, body);
+        return snapHost(party);
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          return reply.status(400).send({ error: "VALIDATION", issues: err.issues });
+        }
         return replyDomain(reply, err);
       }
     },

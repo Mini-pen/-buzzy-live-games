@@ -36,6 +36,10 @@ export function replyDomain(reply: FastifyReply, err: unknown): FastifyReply {
     BAD_MOVE: 400,
     BAD_YOUTUBE_URL: 400,
     BAD_AVATAR: 400,
+    MEDIA_REPLAY_NOT_APPLICABLE: 400,
+    PLAYER_AUDIO_FLAG_NOT_APPLICABLE: 400,
+    BUZZ_SOUND_INVALID: 400,
+    BAD_SOUND_POLICY: 400,
     AVATAR_CATALOG_EMPTY: 503,
   };
 

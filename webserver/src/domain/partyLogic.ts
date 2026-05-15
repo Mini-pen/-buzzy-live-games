@@ -1,5 +1,11 @@
 import { avatarPublicRelativePath } from "../avatars/catalog.js";
-import type { ChatEntry, MancheCatalogItem, PartyPublicSnapshot, Player } from "./types.js";
+import type {
+  ChatEntry,
+  MancheCatalogItem,
+  PartyBuzzSoundPolicy,
+  PartyPublicSnapshot,
+  Player,
+} from "./types.js";
 
 interface PartyMeta {
   closedAfterStart: boolean;
@@ -82,6 +88,8 @@ export function publicSnapshotForParty(part: {
   currentQuestionIndex: number | null;
   mancheScript: MancheCatalogItem[];
   activeMancheId: string | null;
+  allowPlayerAudioControl: boolean;
+  buzzSound: PartyBuzzSoundPolicy;
 }): PartyPublicSnapshot {
   const playersArr = [...part.players.values()].map((p) => ({
     id: p.id,
@@ -89,6 +97,7 @@ export function publicSnapshotForParty(part: {
     avatarUrl: avatarPublicRelativePath(p.avatarKey),
     teamId: p.teamId,
     score: p.score,
+    buzzSoundKey: p.buzzSoundKey,
   }));
   playersArr.sort((a, b) => a.displayName.localeCompare(b.displayName, "fr"));
   const tailLen = 50;
@@ -118,5 +127,10 @@ export function publicSnapshotForParty(part: {
     gameBoard: null,
     mancheScript: [...part.mancheScript],
     activeMancheId: part.activeMancheId,
+    allowPlayerAudioControl: part.allowPlayerAudioControl,
+    soundBuzzerPublic: {
+      playOnPlayerDevice: part.buzzSound.playPlayerBuzzTone,
+      echoOnHostDevice: part.buzzSound.echoPlayerBuzzOnHost,
+    },
   };
 }

@@ -56,6 +56,53 @@ describe("round discriminators", () => {
     });
     expect(isAudioBlindRound(p.rounds[0])).toBe(true);
   });
+
+  test("audio_blind rejects URL without recognizable audio extension", () => {
+    expect(() =>
+      quizPackSchema.parse({
+        id: "a",
+        title: "A",
+        version: 1,
+        rounds: [
+          {
+            kind: "audio_blind",
+            id: "r1",
+            title: "Son",
+            tracks: [
+              {
+                id: "x",
+                audioUrl: "https://streams.example.net/live",
+                revealTitle: "T",
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  test("audio_blind accepts uppercase extension and query string", () => {
+    const parsed = quizPackSchema.parse({
+      id: "a",
+      title: "A",
+      version: 1,
+      rounds: [
+        {
+          kind: "audio_blind",
+          id: "r1",
+          title: "Son",
+          tracks: [
+            {
+              id: "x",
+              audioUrl: "https://files.example/audio/TRACK.MP3?sig=abc",
+              revealTitle: "T",
+            },
+          ],
+        },
+      ],
+    });
+    expect(isAudioBlindRound(parsed.rounds[0])).toBe(true);
+  });
 });
 
 describe("scanQuizPacks", () => {
