@@ -76,6 +76,12 @@ export function resolveBuzzSoundPublicUrl(entry: BuzzSoundCatalogEntry): string 
     .join("/")}`;
 }
 
+/** * Only files under `sounds/buzzers/` may be chosen as a player buzz tone (not good/bad/others). */
+export function isBuzzerClipForPlayerChoice(entry: Pick<BuzzSoundCatalogEntry, "file">): boolean {
+  const n = entry.file.replace(/\\/gu, "/").trim().toLowerCase();
+  return n.startsWith("buzzers/");
+}
+
 export function defaultBuzzSoundPolicyFromCatalog(
   cat: LoadedBuzzSoundCatalog,
 ): {

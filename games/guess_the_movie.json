@@ -1,0 +1,66 @@
+{
+  "id": "guess-the-movie-v1",
+  "title": "Devine le film (indices visuels)",
+  "version": 1,
+  "rounds": [
+    {
+      "kind": "progressive_guess",
+      "id": "affiches-progressives",
+      "title": "Trois visuels puis la révélation",
+      "items": [
+        {
+          "id": "film01",
+          "playerPrompt": "Même film pour les trois indices — buzz quand tu crois tenir le titre.",
+          "clues": [
+            { "imageUrl": "games/guess_the_movie/film01_A.png", "points": 5 },
+            { "imageUrl": "games/guess_the_movie/film01_B.png", "points": 3 },
+            { "imageUrl": "games/guess_the_movie/film01_C.png", "points": 1 }
+          ],
+          "reveal": {
+            "answer": "Film 1 — modifie cette ligne dans le JSON",
+            "imageUrl": "games/guess_the_movie/film01_rep.png"
+          }
+        },
+        {
+          "id": "film02",
+          "playerPrompt": "Même film pour les trois indices — buzz quand tu crois tenir le titre.",
+          "clues": [
+            { "imageUrl": "games/guess_the_movie/film02_A.png", "points": 5 },
+            { "imageUrl": "games/guess_the_movie/film02_B.png", "points": 3 },
+            { "imageUrl": "games/guess_the_movie/film02_C.png", "points": 1 }
+          ],
+          "reveal": {
+            "answer": "Film 2 — modifie cette ligne dans le JSON",
+            "imageUrl": "games/guess_the_movie/film02_rep.png"
+          }
+        },
+        {
+          "id": "film03",
+          "playerPrompt": "Même film pour les trois indices — buzz quand tu crois tenir le titre.",
+          "clues": [
+            { "imageUrl": "games/guess_the_movie/film03_A.png", "points": 5 },
+            { "imageUrl": "games/guess_the_movie/film03_B.png", "points": 3 },
+            { "imageUrl": "games/guess_the_movie/film03_C.png", "points": 1 }
+          ],
+          "reveal": {
+            "answer": "Film 3 — modifie cette ligne dans le JSON",
+            "imageUrl": "games/guess_the_movie/film03_rep.png"
+          }
+        },
+        {
+          "id": "film04",
+          "playerPrompt": "Même film pour les trois indices — buzz quand tu crois tenir le titre.",
+          "clues": [
+            { "imageUrl": "games/guess_the_movie/film04_A.png", "points": 5 },
+            { "imageUrl": "games/guess_the_movie/film04_B.png", "points": 3 },
+            { "imageUrl": "games/guess_the_movie/film04_C.png", "points": 1 }
+          ],
+          "reveal": {
+            "answer": "Film 4 — modifie cette ligne dans le JSON",
+            "imageUrl": "games/guess_the_movie/film04_rep.png"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -87,6 +87,30 @@ const imageBuzzPack: QuizPack = {
   ],
 };
 
+const progressiveGuessPack: QuizPack = {
+  id: "pg-v1",
+  title: "Progressif",
+  version: 1,
+  rounds: [
+    {
+      kind: "progressive_guess",
+      id: "pg",
+      title: "Films",
+      items: [
+        {
+          id: "m1",
+          playerPrompt: "Devine le film.",
+          clues: [
+            { imageUrl: "/games/a.png", points: 3 },
+            { imageUrl: "/games/b.png", points: 1 },
+          ],
+          reveal: { answer: "Réponse", imageUrl: "/games/c.png" },
+        },
+      ],
+    },
+  ],
+};
+
 function partyStub(over: Partial<Party>): Party {
   const base: Party = {
     id: "party-uuid",
@@ -143,6 +167,7 @@ describe("partySnapshotWithGame", () => {
     ["free", freeBuzzPack],
     ["aud", audioBlindPack],
     ["imgb", imageBuzzPack],
+    ["prog", progressiveGuessPack],
   ]);
 
   test("quiz host snapshot includes correct index", () => {
@@ -202,6 +227,32 @@ describe("partySnapshotWithGame", () => {
     expect(s.gameBoard.slideCount).toBe(2);
     expect(s.gameBoard.prompt).toBe("Décris");
     expect(s.gameBoard.awardPoints).toBe(1);
+  });
+
+  test("progressive_guess clue then reveal surface", () => {
+    const mid = "mid-pg";
+    const partyClue = partyStub({
+      state: "round_active",
+      currentRoundIndex: 0,
+      currentQuestionIndex: 0,
+      loadedPackId: "pg-v1",
+      hasStartedRound: true,
+      mancheScript: [quizMancheOverPack("prog", mid)],
+      activeMancheId: mid,
+    });
+    const s0 = partySnapshotWithGame(partyClue, packs, "player");
+    expect(s0.gameBoard?.kind).toBe("progressive_guess");
+    if (s0.gameBoard?.kind !== "progressive_guess") throw new Error("pg");
+    expect(s0.gameBoard.phase).toBe("clue");
+    expect(s0.gameBoard.awardPoints).toBe(3);
+    const partyReveal = partyStub({
+      ...partyClue,
+      currentQuestionIndex: 2,
+    });
+    const s2 = partySnapshotWithGame(partyReveal, packs, "player");
+    if (s2.gameBoard?.kind !== "progressive_guess") throw new Error("pg2");
+    expect(s2.gameBoard.phase).toBe("reveal");
+    expect(s2.gameBoard.answer).toBe("Réponse");
   });
 
   test("audio blind hides reveal from players", () => {

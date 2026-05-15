@@ -19,6 +19,10 @@ describe("avatarPublicRelativePath", () => {
   test("encodes basename", () => {
     expect(avatarPublicRelativePath("a b.png")).toBe("/avatars/a%20b.png");
   });
+
+  test("encodes each path segment for nested keys", () => {
+    expect(avatarPublicRelativePath("base/fox.png")).toBe("/avatars/base/fox.png");
+  });
 });
 
 describe("disk-backed catalog (repo avatars folder)", () => {
@@ -31,13 +35,13 @@ describe("disk-backed catalog (repo avatars folder)", () => {
     expect(first.label.length).toBeGreaterThan(0);
   });
 
-  test("matches exact basename and legacy stem", () => {
+  test("matches exact relative key when unique stem", () => {
     refreshAvatarCatalog();
-    const fox = getAvatarCatalog().find((e) => /^fox\./iu.test(e.key));
-    if (!fox) {
-      throw new Error("Expected fox.* in avatars/ for this test");
+    const c = getAvatarCatalog();
+    const hit = c.find((e) => e.key.includes("avatar_base"));
+    if (!hit) {
+      throw new Error("Expected nested avatar_base*.png under avatars/ for this test");
     }
-    expect(tryParseAvatarKey(fox.key)).toBe(fox.key);
-    expect(tryParseAvatarKey("fox")).toBe(fox.key);
+    expect(tryParseAvatarKey(hit.key)).toBe(hit.key);
   });
 });

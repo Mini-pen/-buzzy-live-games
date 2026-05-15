@@ -25,6 +25,13 @@ async function main(): Promise<void> {
   const store = new PartyStore((partyId, party, meta) => {
     if (socketRef === undefined || quizPacksByRun === undefined) return;
     const packsSnap = quizPacksByRun;
+    if (meta?.kind === "party_deleted") {
+      const payload = { partyId };
+      socketRef.to(`party:${partyId}:player`).emit("party:terminated", payload);
+      socketRef.to(`party:${partyId}:admin`).emit("party:terminated", payload);
+      socketRef.to(`party:${partyId}:broadcast`).emit("party:terminated", payload);
+      return;
+    }
     socketRef
       .to(`party:${partyId}:player`)
       .emit("party:patch", partySnapshotWithGame(party, packsSnap, "player"));

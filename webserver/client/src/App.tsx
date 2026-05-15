@@ -57,6 +57,25 @@ interface PartyGameBoardImageBuzz {
   prompt?: string;
 }
 
+/** * Indices visuels successifs puis plaque réponse (même titre à deviner). */
+interface PartyGameBoardProgressiveGuess {
+  kind: "progressive_guess";
+  phase: "clue" | "reveal";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  puzzleIndexHuman: number;
+  puzzleCount: number;
+  clueIndexHuman?: number;
+  clueCount?: number;
+  imageUrl?: string;
+  awardPoints?: number;
+  playerPrompt?: string;
+  answer?: string;
+  revealImageUrl?: string;
+}
+
 /** * Blind test audio : titre / artiste seulement côté animateur si présents dans le snapshot. */
 interface PartyGameBoardAudioBlind {
   kind: "audio_blind";
@@ -93,6 +112,7 @@ type PartyGameBoardSurface =
   | PartyGameBoardVideo
   | PartyGameBoardFreeBuzz
   | PartyGameBoardImageBuzz
+  | PartyGameBoardProgressiveGuess
   | PartyGameBoardAudioBlind
   | PartyGameBoardIframe
   | PartyGameBoardYoutube;
@@ -148,7 +168,7 @@ interface PartySnapshot {
   };
 }
 
-/** * Catalogue GET `/api/sounds` — buzzer samples for join + host policy. */
+/** * Catalogue GET `/api/sounds` — player buzzer picker (fichiers `buzzers/` seulement). */
 interface CatalogSoundEntry {
   key: string;
   label: string;
@@ -156,24 +176,13 @@ interface CatalogSoundEntry {
   url: string;
 }
 
-/** * Groups catalog entries for an optgroup `<select>` (neutral first, then good, then bad). */
+/** * Groups catalog entries for the player buzzer picker (sons sous `sounds/buzzers/` uniquement). */
 function groupCatalogSoundsForJoin(
   sounds: CatalogSoundEntry[],
 ): { label: string; items: CatalogSoundEntry[] }[] {
-  const neutral = sounds
-    .filter((s) => s.pool === "neutral")
-    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
-  const good = sounds
-    .filter((s) => s.pool === "good")
-    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
-  const bad = sounds
-    .filter((s) => s.pool === "bad")
-    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
-  return [
-    { label: "Sons de buzzer et divers", items: neutral },
-    { label: "Ambiance positive", items: good },
-    { label: "Ambiance négative", items: bad },
-  ].filter((g) => g.items.length > 0);
+  const items = [...sounds].sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  if (items.length === 0) return [];
+  return [{ label: "Sons de buzzer", items }];
 }
 
 /** * Compact label for animateur lists. */
@@ -344,6 +353,27 @@ function purgeAdminSessionForPartyRouteId(routePartyIdRaw: string): void {
   }
 }
 
+/** * Drops player JWT keys for a party id and last-player resume hints when they match. */
+function purgePlayerSessionForPartyRouteId(routePartyIdRaw: string): void {
+  if (typeof globalThis.sessionStorage === "undefined") return;
+  const needle = canonicalPartyIdFromRoute(routePartyIdRaw);
+  if (needle === "") return;
+  const prefix = "partygames:playerJwt:";
+  const keysToDrop: string[] = [];
+  for (let i = 0; i < sessionStorage.length; i += 1) {
+    const k = sessionStorage.key(i);
+    if (k === null || !k.startsWith(prefix)) continue;
+    const idSuffix = k.slice(prefix.length);
+    if (canonicalPartyIdFromRoute(idSuffix) === needle) keysToDrop.push(k);
+  }
+  for (const k of keysToDrop) sessionStorage.removeItem(k);
+  const last = sessionStorage.getItem(STORAGE_LAST_PLAYER_PARTY);
+  if (last !== null && canonicalPartyIdFromRoute(last) === needle) {
+    sessionStorage.removeItem(STORAGE_LAST_PLAYER_PARTY);
+    sessionStorage.removeItem(STORAGE_LAST_PLAYER_CODE);
+  }
+}
+
 /** * Records the player party id for the home page resume link; join code is optional display cache. */
 function rememberPlayerParty(partyId: string, joinCode?: string): void {
   if (typeof globalThis.sessionStorage === "undefined") return;
@@ -506,7 +536,82 @@ function hostGoodPointsHint(board: PartyGameBoardSurface | null | undefined): nu
   if (board === null || board === undefined) return 1;
   if (board.kind === "quiz") return board.points;
   if (board.kind === "image_buzz") return board.awardPoints;
+  if (board.kind === "progressive_guess" && board.phase === "clue")
+    return typeof board.awardPoints === "number" ? board.awardPoints : 1;
   return 1;
+}
+
+const STORAGE_PREFERRED_BUZZ_KEY = "partygames:preferredBuzzSoundKey";
+
+function readPreferredBuzzSoundKey(): string | null {
+  if (typeof globalThis.sessionStorage === "undefined") return null;
+  const v = sessionStorage.getItem(STORAGE_PREFERRED_BUZZ_KEY)?.trim();
+  return v !== undefined && v !== "" ? v : null;
+}
+
+function writePreferredBuzzSoundKey(key: string): void {
+  if (typeof globalThis.sessionStorage === "undefined") return;
+  sessionStorage.setItem(STORAGE_PREFERRED_BUZZ_KEY, key);
+}
+
+function BuzzSoundPickerBlock(props: {
+  sectionId: string;
+  title: string;
+  lead?: string | undefined;
+  soundsLib: { defaultBuzzerKey: string; sounds: CatalogSoundEntry[] } | null;
+  value: string;
+  onChange: (key: string) => void;
+  disabled?: boolean | undefined;
+}): JSX.Element {
+  const { sectionId, title, lead, soundsLib, value, onChange, disabled } = props;
+  return (
+    <section aria-labelledby={sectionId}>
+      <h3 id={sectionId} style={{ fontSize: 16, margin: "14px 0 8px" }}>
+        {title}
+      </h3>
+      {soundsLib === null ? (
+        <p style={{ margin: 0, opacity: 0.75 }}>Chargement des sons…</p>
+      ) : soundsLib.sounds.length === 0 ? (
+        <p style={{ margin: 0, opacity: 0.75 }}>Aucun son disponible (défaut serveur).</p>
+      ) : (
+        <>
+          {typeof lead === "string" && lead !== "" ? (
+            <p style={{ margin: "0 0 10px", fontSize: 14, opacity: 0.85 }}>{lead}</p>
+          ) : null}
+          <div className="bz-join-sound-row">
+            <select
+              aria-labelledby={sectionId}
+              className="bz-join-sound-select"
+              value={value}
+              disabled={disabled === true}
+              onChange={(e) => onChange(e.target.value)}
+            >
+              {groupCatalogSoundsForJoin(soundsLib.sounds).map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.items.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="bz-join-sound-preview"
+              disabled={disabled === true}
+              onClick={() => {
+                const hit = soundsLib.sounds.find((x) => x.key === value);
+                playSfxUrl(hit?.url);
+              }}
+            >
+              Écouter
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
 }
 
 function Shell(props: {
@@ -547,6 +652,11 @@ function Home(): JSX.Element {
     partyId: string;
     joinCode: string;
   } | null>(null);
+  const [homeSoundsLib, setHomeSoundsLib] = useState<{
+    defaultBuzzerKey: string;
+    sounds: CatalogSoundEntry[];
+  } | null>(null);
+  const [homeBuzzPick, setHomeBuzzPick] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -605,6 +715,23 @@ function Home(): JSX.Element {
     };
   }, []);
 
+  useEffect(() => {
+    void fetchJson<{ defaultBuzzerKey: string; sounds: CatalogSoundEntry[] }>(`/api/sounds`).then(
+      setHomeSoundsLib,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (homeSoundsLib === null || homeBuzzPick !== "") return;
+    const pref = readPreferredBuzzSoundKey();
+    const fromPref =
+      pref !== null && homeSoundsLib.sounds.some((s) => s.key === pref) ? pref : null;
+    const d = homeSoundsLib.defaultBuzzerKey.trim();
+    const hasDefault = homeSoundsLib.sounds.some((s) => s.key === d);
+    const fb = homeSoundsLib.sounds[0]?.key ?? "";
+    setHomeBuzzPick(fromPref ?? (hasDefault ? d : fb));
+  }, [homeSoundsLib, homeBuzzPick]);
+
   return (
     <Shell title="Accueil">
       <section className="bz-hero">
@@ -625,6 +752,20 @@ function Home(): JSX.Element {
             Rejoindre avec un code
           </Link>
         </div>
+      </section>
+
+      <section className="bz-home-player-prefs" style={{ marginTop: 28 }}>
+        <BuzzSoundPickerBlock
+          sectionId="home-buzz-sound-heading"
+          title="Ton buzzer pour la prochaine partie"
+          lead="Réglage mémorisé sur cet appareil : il sera repris automatiquement sur « Rejoindre »."
+          soundsLib={homeSoundsLib}
+          value={homeBuzzPick}
+          onChange={(k) => {
+            setHomeBuzzPick(k);
+            writePreferredBuzzSoundKey(k);
+          }}
+        />
       </section>
 
       {(playerResume !== null || adminResume !== null) ? (
@@ -762,10 +903,13 @@ function Join(): JSX.Element {
 
   useEffect(() => {
     if (soundsLib === null || buzzSoundKeyChosen !== "") return;
+    const pref = readPreferredBuzzSoundKey();
+    const fromPref =
+      pref !== null && soundsLib.sounds.some((s) => s.key === pref) ? pref : null;
     const d = soundsLib.defaultBuzzerKey.trim();
     const hasDefault = soundsLib.sounds.some((s) => s.key === d);
     const fallback = soundsLib.sounds[0]?.key ?? "";
-    setBuzzSoundKeyChosen(hasDefault ? d : fallback);
+    setBuzzSoundKeyChosen(fromPref ?? (hasDefault ? d : fallback));
   }, [soundsLib, buzzSoundKeyChosen]);
 
   const pidNormField = canonicalPartyIdFromRoute(partyId);
@@ -788,9 +932,7 @@ function Join(): JSX.Element {
       const key =
         avatarKeyChosen !== ""
           ? avatarKeyChosen
-          : avatarsLib?.defaultKey ??
-            avatarsLib?.avatars[0]?.key ??
-            "fox";
+          : avatarsLib?.defaultKey ?? avatarsLib?.avatars[0]?.key ?? "";
       const body: Record<string, unknown> = { displayName: name.trim(), avatarKey: key };
       if (snap.maxTeams != null && snap.maxTeams >= 2) body.teamId = teamId;
       if (buzzSoundKeyChosen.trim() !== "") body.buzzSoundKey = buzzSoundKeyChosen.trim();
@@ -885,50 +1027,18 @@ function Join(): JSX.Element {
             </>
           )}
         </section>
-        <section aria-labelledby="join-buzz-sound-heading">
-          <h3 id="join-buzz-sound-heading" style={{ fontSize: 16, margin: "14px 0 8px" }}>
-            Son du buzzer
-          </h3>
-          {soundsLib === null ? (
-            <p style={{ margin: 0, opacity: 0.75 }}>Chargement des sons…</p>
-          ) : soundsLib.sounds.length === 0 ? (
-            <p style={{ margin: 0, opacity: 0.75 }}>Aucun son disponible (défaut serveur).</p>
-          ) : (
-            <>
-              <p style={{ margin: "0 0 10px", fontSize: 14, opacity: 0.85 }}>
-                Choisissez le son joué sur votre téléphone quand vous buzz (si l’animateur l’autorise).
-              </p>
-              <div className="bz-join-sound-row">
-                <select
-                  aria-labelledby="join-buzz-sound-heading"
-                  className="bz-join-sound-select"
-                  value={buzzSoundKeyChosen}
-                  onChange={(e) => setBuzzSoundKeyChosen(e.target.value)}
-                >
-                    {groupCatalogSoundsForJoin(soundsLib.sounds).map((g) => (
-                      <optgroup key={g.label} label={g.label}>
-                        {g.items.map((s) => (
-                          <option key={s.key} value={s.key}>
-                            {s.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                </select>
-                <button
-                  type="button"
-                  className="bz-join-sound-preview"
-                  onClick={() => {
-                    const hit = soundsLib.sounds.find((s) => s.key === buzzSoundKeyChosen);
-                    playSfxUrl(hit?.url);
-                  }}
-                >
-                  Écouter
-                </button>
-              </div>
-            </>
-          )}
-        </section>
+        <BuzzSoundPickerBlock
+          sectionId="join-buzz-sound-heading"
+          title="Son du buzzer"
+          lead="Choisissez le son joué sur votre téléphone quand vous buzz (si l’animateur l’autorise)."
+          soundsLib={soundsLib}
+          value={buzzSoundKeyChosen}
+          disabled={loading}
+          onChange={(k) => {
+            setBuzzSoundKeyChosen(k);
+            writePreferredBuzzSoundKey(k);
+          }}
+        />
         {needsTeam ? (
           <label>
             Équipe (1–{snap.maxTeams})
@@ -1093,6 +1203,53 @@ function GameBoardPanel(props: {
         <p className="bz-muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
           L&apos;animateur ouvre le buzzer : la file indique qui répond à l&apos;oral dans l&apos;ordre.
         </p>
+      </section>
+    );
+  }
+
+  if (board !== null && board.kind === "progressive_guess") {
+    if (board.phase === "clue") {
+      const lead =
+        typeof board.playerPrompt === "string" && board.playerPrompt.trim() !== ""
+          ? board.playerPrompt.trim()
+          : "Un seul titre pour toute la série d’images — buzz puis réponds à voix haute.";
+      return (
+        <section className="bz-board">
+          <div className="bz-board-meta">
+            <span className="bz-pill bz-accent">
+              +{board.awardPoints ?? 1} {(board.awardPoints ?? 1) === 1 ? "pt" : "pts"}
+            </span>
+            <span>
+              {board.packTitle} · {board.roundTitle} — énigme {board.puzzleIndexHuman}/{board.puzzleCount} ·
+              indice {board.clueIndexHuman}/{board.clueCount}
+            </span>
+          </div>
+          {typeof board.imageUrl === "string" && board.imageUrl.trim() !== "" ? (
+            <QuizIllustration imageUrl={board.imageUrl} variant="panel" />
+          ) : null}
+          <p className="bz-free-buzz-lead">{lead}</p>
+          <p className="bz-muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
+            Indice suivant plus facile&nbsp;: le bonus «&nbsp;bonne réponse&nbsp;» peut baisser.
+          </p>
+        </section>
+      );
+    }
+    const img = typeof board.revealImageUrl === "string" ? board.revealImageUrl.trim() : "";
+    return (
+      <section className="bz-board">
+        <div className="bz-board-meta">
+          <span className="bz-pill bz-good">
+            <span className="bz-dot" />
+            révélation
+          </span>
+          <span>
+            {board.packTitle} · {board.roundTitle} — énigme {board.puzzleIndexHuman}/{board.puzzleCount}
+          </span>
+        </div>
+        {img !== "" ? <QuizIllustration imageUrl={img} variant="panel" /> : null}
+        <h2 className="bz-board-prompt" style={{ marginTop: 16 }}>
+          {board.answer ?? "—"}
+        </h2>
       </section>
     );
   }
@@ -1430,6 +1587,17 @@ function Play(): JSX.Element {
   const [snap, setSnap] = useState<PartySnapshot | null>(null);
   const [chat, setChat] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [lobbySoundsLib, setLobbySoundsLib] = useState<{
+    defaultBuzzerKey: string;
+    sounds: CatalogSoundEntry[];
+  } | null>(null);
+  const [lobbyBuzzSaving, setLobbyBuzzSaving] = useState(false);
+
+  useEffect(() => {
+    void fetchJson<{ defaultBuzzerKey: string; sounds: CatalogSoundEntry[] }>(`/api/sounds`).then(
+      setLobbySoundsLib,
+    );
+  }, []);
 
   useEffect(() => {
     if (!pid || jwt === null || jwt === "") return undefined;
@@ -1444,10 +1612,17 @@ function Play(): JSX.Element {
     });
 
     const onSnap = (p: PartySnapshot) => setSnap(p);
+    const onTerminated = (): void => {
+      purgePlayerSessionForPartyRouteId(pid);
+      s.disconnect();
+      nav("/", { replace: true });
+    };
     s.on("party:patch", onSnap);
+    s.on("party:terminated", onTerminated);
 
     return (): void => {
       s.off("party:patch", onSnap);
+      s.off("party:terminated", onTerminated);
       s.disconnect();
     };
   }, [pid, jwt]);
@@ -1529,12 +1704,39 @@ function Play(): JSX.Element {
   const canChatRoom = snap.state === "lobby" || snap.state === "between_rounds";
   const canBuzz = snap.state === "round_active" && snap.buzzWindowOpen;
 
+  async function updateMyBuzzSound(next: string): Promise<void> {
+    if (!pid || jwt === null || jwt === "") return;
+    const me = snap.players.find((p) => p.id === myId);
+    if (me === undefined || me.buzzSoundKey === next) return;
+    setErr(null);
+    setLobbyBuzzSaving(true);
+    try {
+      const s = await fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(pid)}/me`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ buzzSoundKey: next }),
+      });
+      setSnap(s);
+      writePreferredBuzzSoundKey(next);
+    } catch (e4) {
+      setErr(e4 instanceof Error ? e4.message : "Mise à jour refusée");
+    }
+    setLobbyBuzzSaving(false);
+  }
+
   return (
     <Shell title={`Partie · ${snap.joinCode}`}>
       <section className="bz-identity-strip">
-        <span className="bz-avatar">
-          {(rowMe?.displayName ?? "?").slice(0, 2).toUpperCase()}
-        </span>
+        {rowMe !== undefined ? (
+          <span className="bz-avatar-slot" title={rowMe.avatarUrl}>
+            <AvatarFigure src={rowMe.avatarUrl} sizePx={44} />
+          </span>
+        ) : (
+          <span className="bz-avatar">?</span>
+        )}
         <div className="bz-identity-info">
           <div className="bz-identity-name">{rowMe?.displayName ?? "—"}</div>
           <div className="bz-identity-meta">
@@ -1599,7 +1801,14 @@ function Play(): JSX.Element {
                     snap.gameBoard.kind === "audio_blind")
                   ? "Regarde ou écoute — l’animateur peut enchaîner l’extrait pour tout le monde."
                 : snap.gameBoard !== null &&
-                  (snap.gameBoard.kind === "free_buzz" || snap.gameBoard.kind === "image_buzz")
+                  snap.gameBoard.kind === "progressive_guess" &&
+                  snap.gameBoard.phase === "reveal"
+                  ? "Révélation affichée : plus d’indices — le buzzer ne sert plus à marquer sur cette vignette."
+                : snap.gameBoard !== null &&
+                  (snap.gameBoard.kind === "free_buzz" ||
+                    snap.gameBoard.kind === "image_buzz" ||
+                    (snap.gameBoard.kind === "progressive_guess" &&
+                      snap.gameBoard.phase === "clue"))
                   ? "Pas de choix à l'écran : réponds à voix quand l’animateur ouvre le buzzer."
                 : snap.state === "lobby"
                 ? "En attente du démarrage de la manche par l'animateur."
@@ -2169,9 +2378,11 @@ function Admin(): JSX.Element {
       ? "Extrait suivant →"
       : hostGameBoard !== null && hostGameBoard.kind === "image_buzz"
         ? "Image suivante →"
-        : hostGameBoard !== null && hostGameBoard.kind === "free_buzz"
-          ? "Question suivante (oral) →"
-          : "Question suivante →";
+        : hostGameBoard !== null && hostGameBoard.kind === "progressive_guess"
+          ? "Indice / révélation suivant(e) →"
+          : hostGameBoard !== null && hostGameBoard.kind === "free_buzz"
+            ? "Question suivante (oral) →"
+            : "Question suivante →";
 
   const goodPts = hostGoodPointsHint(hostGameBoard);
 

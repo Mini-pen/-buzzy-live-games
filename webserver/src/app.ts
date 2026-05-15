@@ -11,6 +11,7 @@ import type { PartyStore } from "./domain/store.js";
 import type { LoadedBuzzSoundCatalog } from "./games/buzzSoundCatalog.js";
 import type { QuizPack } from "./games/pack.js";
 import { registerPartyRoutes } from "./http/routesParty.js";
+import { resolveAvatarsServingRoot } from "./avatars/catalog.js";
 
 export interface BuildDeps {
   config: AppConfig;
@@ -40,6 +41,15 @@ export async function buildApp(opts: BuildDeps): Promise<ReturnType<typeof Fasti
     config: opts.config,
     buzzCatalog: opts.buzzCatalog,
   });
+
+  const avatarsRoot = resolveAvatarsServingRoot();
+  if (avatarsRoot !== null) {
+    await app.register(fastifyStatic, {
+      root: avatarsRoot,
+      prefix: "/avatars/",
+      decorateReply: false,
+    });
+  }
 
   await app.register(fastifyStatic, {
     root: opts.config.gamesDir,

@@ -7,7 +7,7 @@ import { z } from "zod";
 /** * Skip huge JSON blobs (e.g. data exports) mistaken for quiz packs. */
 export const MAX_QUIZ_PACK_JSON_BYTES = 520_000;
 
-/** * HTTPS, localhost http, or absolute same-origin path (e.g. `/games/…`). */
+/** * HTTPS, localhost http, root-relative path, or `games/…` (normalized to `/games/…`). */
 export const optionalPublicUrlSchema = z
   .string()
   .trim()
@@ -23,11 +23,13 @@ export const optionalPublicUrlSchema = z
     (s) =>
       s.startsWith("/") ||
       /^https:\/\/[^/\s]+/iu.test(s) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/\S+/iu.test(s),
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/\S+/iu.test(s) ||
+      /^games\/[a-zA-Z0-9][a-zA-Z0-9_./@-]*$/u.test(s),
     {
       message: "PUBLIC_URL_REJECTED",
     },
-  );
+  )
+  .transform((s): string => (s.startsWith("games/") ? `/${s}` : s));
 
 const questionSchema = z.object({
   id: z.string().min(1),
@@ -123,10 +125,69 @@ export const audioBlindRoundSchema = z
   })
   .strict();
 
+const progressiveGuessClueSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    imageUrl: optionalPublicUrlSchema,
+    points: z.number().int().positive(),
+  })
+  .strict();
+
+const progressiveGuessRevealSchema = z
+  .object({
+    answer: z.string().min(1).max(200),
+    imageUrl: optionalPublicUrlSchema,
+  })
+  .strict();
+
+const progressiveGuessItemSchema = z
+  .object({
+    id: z.string().min(1),
+    playerPrompt: z.string().min(1).max(480).optional(),
+    clues: z.array(progressiveGuessClueSchema).min(2),
+    reveal: progressiveGuessRevealSchema,
+  })
+  .strict();
+
+/** * Succession d’images puis écran révélation (réponse figurant dans le JSON). */
+export const progressiveGuessRoundSchema = z
+  .object({
+    kind: z.literal("progressive_guess"),
+    id: z.string().min(1),
+    title: z.string().min(1),
+    items: z.array(progressiveGuessItemSchema).min(1),
+  })
+  .strict();
+
+export type ProgressiveGuessRound = z.infer<typeof progressiveGuessRoundSchema>;
+export type ProgressiveGuessItem = ProgressiveGuessRound["items"][number];
+
+export function progressiveGuessTotalFlatSteps(round: ProgressiveGuessRound): number {
+  return round.items.reduce((acc, it) => acc + it.clues.length + 1, 0);
+}
+
+export function progressiveGuessDecode(
+  round: ProgressiveGuessRound,
+  flatQi: number,
+): { item: ProgressiveGuessItem; clueIndex: number | null } | null {
+  let offset = 0;
+  for (const item of round.items) {
+    const span = item.clues.length + 1;
+    const local = flatQi - offset;
+    if (local >= 0 && local < span) {
+      if (local < item.clues.length) return { item, clueIndex: local };
+      return { item, clueIndex: null };
+    }
+    offset += span;
+  }
+  return null;
+}
+
 export const roundSchema = z.union([
   freeBuzzRoundSchema,
   imageBuzzRoundSchema,
   audioBlindRoundSchema,
+  progressiveGuessRoundSchema,
   videoRoundSchema,
   quizRoundSchema,
 ]);
@@ -152,13 +213,18 @@ export function isImageBuzzRound(r: PackRound): r is ImageBuzzRound {
   return (r as { kind?: string }).kind === "image_buzz";
 }
 
+export function isProgressiveGuessRound(r: PackRound): r is ProgressiveGuessRound {
+  return (r as { kind?: string }).kind === "progressive_guess";
+}
+
 /** * Classic multi-choice quiz round (`questions` array, no explicit `kind`). */
 export function isQuizRound(r: PackRound): r is QuizRound {
   return (
     !isVideoRound(r) &&
     !isFreeBuzzRound(r) &&
     !isImageBuzzRound(r) &&
-    !isAudioBlindRound(r)
+    !isAudioBlindRound(r) &&
+    !isProgressiveGuessRound(r)
   );
 }
 
@@ -177,7 +243,16 @@ export type QuizPack = z.infer<typeof quizPackSchema>;
 
 function validatePackInvariants(parsed: QuizPack): void {
   for (const r of parsed.rounds) {
-    if (isVideoRound(r) || isFreeBuzzRound(r) || isImageBuzzRound(r) || isAudioBlindRound(r)) continue;
+    if (
+      isVideoRound(r) ||
+      isFreeBuzzRound(r) ||
+      isImageBuzzRound(r) ||
+      isAudioBlindRound(r) ||
+      isProgressiveGuessRound(r)
+    ) {
+      continue;
+    }
+    if (!isQuizRound(r)) continue;
     for (const q of r.questions) {
       if (q.correctIndex >= q.choices.length) {
         throw new Error(`Question ${q.id}: correctIndex out of bounds`);
