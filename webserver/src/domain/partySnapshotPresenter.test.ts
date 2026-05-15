@@ -201,6 +201,7 @@ describe("partySnapshotWithGame", () => {
     expect(s.gameBoard.slideIndexHuman).toBe(1);
     expect(s.gameBoard.slideCount).toBe(2);
     expect(s.gameBoard.prompt).toBe("Décris");
+    expect(s.gameBoard.awardPoints).toBe(1);
   });
 
   test("audio blind hides reveal from players", () => {

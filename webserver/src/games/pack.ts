@@ -71,6 +71,8 @@ const imageBuzzSlideSchema = z.object({
   imageUrl: optionalPublicUrlSchema,
   /** * Optional caption; when absent the client shows a generic oral-answer hint. */
   prompt: z.string().min(1).optional(),
+  /** * Points when the host validates a correct oral answer (default 1 if omitted). */
+  points: z.number().int().positive().optional(),
 });
 
 /** * One image per step; players buzz and answer out loud (no on-screen choices). */
@@ -148,6 +150,16 @@ export function isFreeBuzzRound(r: PackRound): r is FreeBuzzRound {
 
 export function isImageBuzzRound(r: PackRound): r is ImageBuzzRound {
   return (r as { kind?: string }).kind === "image_buzz";
+}
+
+/** * Classic multi-choice quiz round (`questions` array, no explicit `kind`). */
+export function isQuizRound(r: PackRound): r is QuizRound {
+  return (
+    !isVideoRound(r) &&
+    !isFreeBuzzRound(r) &&
+    !isImageBuzzRound(r) &&
+    !isAudioBlindRound(r)
+  );
 }
 
 export function isAudioBlindRound(r: PackRound): r is AudioBlindRound {

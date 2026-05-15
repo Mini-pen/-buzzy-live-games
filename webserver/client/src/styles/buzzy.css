@@ -1070,6 +1070,7 @@ html, body {
   border-radius: 8px;
   margin: 0;
   font-size: 13px;
+  flex-wrap: wrap;
 }
 .bz-app .bz-host-queue-list li:first-child {
   background: var(--bz-accent-soft);
@@ -1083,7 +1084,37 @@ html, body {
   color: var(--bz-muted);
 }
 .bz-app .bz-host-queue-list li:first-child .bz-rank { color: var(--bz-accent); }
-.bz-app .bz-host-queue-list .bz-name { flex: 1; font-weight: 600; }
+.bz-app .bz-host-queue-list .bz-name { flex: 1; font-weight: 600; min-width: 80px; }
+.bz-app .bz-host-queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+}
+.bz-app .bz-host-resolve-btn {
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--bz-f-body);
+  border: 1px solid var(--bz-line);
+  background: var(--bz-surface);
+  color: var(--bz-text);
+}
+.bz-app .bz-host-resolve-btn--good {
+  border-color: color-mix(in srgb, var(--bz-accent) 55%, var(--bz-line));
+  background: var(--bz-accent-soft);
+  color: var(--bz-text-strong);
+}
+.bz-app .bz-host-resolve-btn--bad {
+  border-color: var(--bz-line-strong);
+  background: var(--bz-surface-2);
+}
+.bz-app .bz-host-resolve-btn:hover {
+  filter: brightness(1.05);
+}
 
 /* Scoreboard */
 .bz-app .bz-host-scores {

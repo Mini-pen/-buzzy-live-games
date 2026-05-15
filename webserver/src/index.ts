@@ -45,6 +45,13 @@ async function main(): Promise<void> {
       socketRef
         .to(`party:${partyId}:admin`)
         .emit("party:buzz_fx", { playerId: meta.playerId, url });
+      return;
+    }
+    if (meta?.kind === "answer_fx") {
+      const u = typeof meta.url === "string" ? meta.url.trim() : "";
+      if (u === "") return;
+      socketRef.to(`party:${partyId}:admin`).emit("party:answer_fx", { url: u });
+      socketRef.to(`party:${partyId}:broadcast`).emit("party:answer_fx", { url: u });
     }
   }, buzzCatalog);
 

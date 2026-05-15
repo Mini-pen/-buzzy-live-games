@@ -52,7 +52,7 @@ describe("round discriminators", () => {
           id: "r1",
           title: "Série",
           slides: [
-            { id: "a", imageUrl: "/games/x.png" },
+            { id: "a", imageUrl: "/games/x.png", points: 3 },
             { id: "b", imageUrl: "/games/y.png", prompt: "Hint" },
           ],
         },

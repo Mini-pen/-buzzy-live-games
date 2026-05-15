@@ -83,6 +83,11 @@ const buzzWindowSchema = z.object({
   open: z.boolean(),
 });
 
+const buzzResolveSchema = z.object({
+  playerId: z.string().uuid(),
+  verdict: z.enum(["good", "bad"]),
+});
+
 const playerAudioAllowSchema = z.object({
   allowed: z.boolean(),
 });
@@ -506,6 +511,29 @@ export async function registerPartyRoutes(
         if (!store.verifyAdminToken(party, token))
           return reply.status(401).send({ error: "UNAUTHORIZED" });
         store.adminSetBuzzOpen(party, body.open);
+        return snapHost(party);
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          return reply.status(400).send({ error: "VALIDATION", issues: err.issues });
+        }
+        return replyDomain(reply, err);
+      }
+    },
+  );
+
+  app.post<{ Params: { partyId: string } }>(
+    "/api/parties/:partyId/host/buzz-resolve",
+    async (req, reply) => {
+      try {
+        const body = buzzResolveSchema.parse(req.body ?? {});
+        const party = requireParty(store, req.params.partyId);
+        const token = readBearer(req.headers.authorization);
+        if (!store.verifyAdminToken(party, token))
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        const loaded = quizPackFromLoadedId(packs, party.loadedPackId);
+        if (!loaded)
+          throw Object.assign(new Error("PACK_NOT_FOUND"), { code: "PACK_NOT_FOUND" });
+        store.adminValidateBuzzAnswer(party, body.playerId, body.verdict, loaded);
         return snapHost(party);
       } catch (err) {
         if (err instanceof z.ZodError) {

@@ -136,6 +136,8 @@ export interface PartyGameBoardImageBuzz {
   slideIndexHuman: number;
   slideCount: number;
   imageUrl: string;
+  /** * Host-guarded good-answer value for this slide (from pack JSON, default 1). */
+  awardPoints: number;
   /** * Optional line from the pack; absent clients show generic oral instructions. */
   prompt?: string;
 }

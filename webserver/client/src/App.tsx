@@ -53,6 +53,7 @@ interface PartyGameBoardImageBuzz {
   slideIndexHuman: number;
   slideCount: number;
   imageUrl: string;
+  awardPoints: number;
   prompt?: string;
 }
 
@@ -498,6 +499,14 @@ function playSfxUrl(url: string | undefined | null): void {
   } catch {
     /* noop */
   }
+}
+
+/** * Points attribués sur « bonne réponse » pour la vignette / question courante (affiche boutons animateur). */
+function hostGoodPointsHint(board: PartyGameBoardSurface | null | undefined): number {
+  if (board === null || board === undefined) return 1;
+  if (board.kind === "quiz") return board.points;
+  if (board.kind === "image_buzz") return board.awardPoints;
+  return 1;
 }
 
 function Shell(props: {
@@ -1775,11 +1784,16 @@ function Admin(): JSX.Element {
     const onBuzzFx = (payload: { url: string }) => {
       playSfxUrl(payload.url);
     };
+    const onAnswerFx = (payload: { url: string }) => {
+      playSfxUrl(payload.url);
+    };
     s.on("party:patch", onSnap);
     s.on("party:buzz_fx", onBuzzFx);
+    s.on("party:answer_fx", onAnswerFx);
     return (): void => {
       s.off("party:patch", onSnap);
       s.off("party:buzz_fx", onBuzzFx);
+      s.off("party:answer_fx", onAnswerFx);
       s.disconnect();
     };
   }, [pid, bearer, adminBootstrap]);
@@ -1832,6 +1846,22 @@ function Admin(): JSX.Element {
   );
 
   const hostBasePath = `/api/parties/${encodeURIComponent(pid)}`;
+
+  const onHostBuzzResolve = useCallback(
+    async (playerId: string, verdict: "good" | "bad"): Promise<void> => {
+      setErr(null);
+      try {
+        const p = await callHostSnapshot(`${hostBasePath}/host/buzz-resolve`, "POST", {
+          playerId,
+          verdict,
+        });
+        setSnap(p);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [callHostSnapshot, hostBasePath],
+  );
 
   const onHostMancheSubmitAdd = useCallback(async (): Promise<void> => {
     setErr(null);
@@ -2143,6 +2173,8 @@ function Admin(): JSX.Element {
           ? "Question suivante (oral) →"
           : "Question suivante →";
 
+  const goodPts = hostGoodPointsHint(hostGameBoard);
+
   return (
     <Shell title={`Animateur · ${snap.joinCode}`} wide>
       <div className="bz-host-layout">
@@ -2381,7 +2413,7 @@ function Admin(): JSX.Element {
                 {snap.buzzOrder.map((idBuzz2, ix) => {
                   const pw = snap.players.find((zz) => zz.id === idBuzz2);
                   return (
-                    <li key={`${idBuzz2}-${ix}`}>
+                    <li key={`${idBuzz2}-${ix}`} className="bz-host-queue-item">
                       <span className="bz-rank">{ix + 1}</span>
                       <span className="bz-name">
                         {pw?.displayName ?? idBuzz2}
@@ -2389,6 +2421,24 @@ function Admin(): JSX.Element {
                       {pw?.teamId != null ? (
                         <span className="bz-host-team">éq. {pw.teamId}</span>
                       ) : null}
+                      <span className="bz-host-queue-actions">
+                        <button
+                          type="button"
+                          className="bz-host-resolve-btn bz-host-resolve-btn--good"
+                          title={`Bonne réponse — +${goodPts} point${goodPts === 1 ? "" : "s"}`}
+                          onClick={() => void onHostBuzzResolve(idBuzz2, "good")}
+                        >
+                          Bon (+{goodPts})
+                        </button>
+                        <button
+                          type="button"
+                          className="bz-host-resolve-btn bz-host-resolve-btn--bad"
+                          title="Mauvaise réponse — son « mauvais »"
+                          onClick={() => void onHostBuzzResolve(idBuzz2, "bad")}
+                        >
+                          Mauvais
+                        </button>
+                      </span>
                     </li>
                   );
                 })}
@@ -2648,11 +2698,16 @@ function Broadcast(): JSX.Element {
         setErr(null);
       }
     };
+    const onAnswerFx = (payload: { url: string }): void => {
+      playSfxUrl(payload.url);
+    };
     s.on("party:patch", onSnap);
+    s.on("party:answer_fx", onAnswerFx);
 
     return (): void => {
       cancelled = true;
       s.off("party:patch", onSnap);
+      s.off("party:answer_fx", onAnswerFx);
       s.disconnect();
     };
   }, [pid]);

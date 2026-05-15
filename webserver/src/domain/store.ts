@@ -3,9 +3,15 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { nanoid } from "nanoid";
 
 import type { LoadedBuzzSoundCatalog } from "../games/buzzSoundCatalog.js";
-import { defaultBuzzSoundPolicyFromCatalog } from "../games/buzzSoundCatalog.js";
+import { defaultBuzzSoundPolicyFromCatalog, resolveBuzzSoundPublicUrl } from "../games/buzzSoundCatalog.js";
 import type { QuizPack } from "../games/pack.js";
-import { isAudioBlindRound, isFreeBuzzRound, isImageBuzzRound, isVideoRound } from "../games/pack.js";
+import {
+  isAudioBlindRound,
+  isFreeBuzzRound,
+  isImageBuzzRound,
+  isQuizRound,
+  isVideoRound,
+} from "../games/pack.js";
 import { parseAvatarKeyOrDefault, requireParsedAvatarKey } from "../avatars/catalog.js";
 import { randomJoinCode, randomSecretHex } from "./codes.js";
 import { evaluateJoin, normalizeTeamChoice, publicSnapshotForParty } from "./partyLogic.js";
@@ -19,7 +25,9 @@ export interface CreatePartyOpts {
   allowTeamChange: boolean;
 }
 
-export type PartyNotifyMeta = undefined | { kind: "buzz_fx"; playerId: string };
+export type PartyNotifyMeta =
+  | { kind: "buzz_fx"; playerId: string }
+  | { kind: "answer_fx"; url: string };
 
 export type PartyNotifier = (partyId: string, party: Party, meta?: PartyNotifyMeta) => void;
 
@@ -682,5 +690,65 @@ export class PartyStore {
     player.score = Math.max(0, player.score + delta);
     this.touch(party);
     this.broadcast(party);
+  }
+
+  /** * Picks a good/bad outcome sound, optionally awards current-cue points, removes the player from the buzz queue. */
+  adminValidateBuzzAnswer(
+    party: Party,
+    playerId: string,
+    verdict: "good" | "bad",
+    pack: QuizPack,
+  ): void {
+    if (party.state !== "round_active") {
+      throw Object.assign(new Error("Manche inactive."), { code: "BAD_PHASE" });
+    }
+    const ix = party.buzzOrder.indexOf(playerId);
+    if (ix < 0) {
+      throw Object.assign(new Error("Ce joueur n'est pas dans la file de buzz."), {
+        code: "NOT_IN_BUZZ_QUEUE",
+      });
+    }
+    const keys =
+      verdict === "good" ? party.buzzSound.allowedGoodKeys : party.buzzSound.allowedBadKeys;
+    if (keys.length === 0) {
+      throw Object.assign(new Error("Politique de sons invalide."), {
+        code: "BAD_SOUND_POLICY",
+      });
+    }
+    const pickKey = keys[Math.floor(Math.random() * keys.length)]!;
+    const sfx = this.buzzCatalog.byKey.get(pickKey);
+    if (!sfx) {
+      throw Object.assign(new Error("Son inconnu."), { code: "BUZZ_SOUND_INVALID" });
+    }
+    const url = resolveBuzzSoundPublicUrl(sfx).trim();
+    if (verdict === "good") {
+      const pts = this.goodPointsForCurrentCue(party, pack);
+      const player = party.players.get(playerId);
+      if (player) player.score = Math.max(0, player.score + pts);
+    }
+    party.buzzOrder.splice(ix, 1);
+    this.syncActiveQuizProgressIntoScriptItem(party);
+    this.touch(party);
+    const meta: PartyNotifyMeta | undefined =
+      url !== "" ? { kind: "answer_fx", url } : undefined;
+    this.notify(party.id, party, meta);
+  }
+
+  private goodPointsForCurrentCue(party: Party, pack: QuizPack): number {
+    const ri = party.currentRoundIndex;
+    const qi = party.currentQuestionIndex;
+    if (ri === null || qi === null) return 1;
+    const round = pack.rounds[ri];
+    if (round === undefined) return 1;
+    if (isQuizRound(round)) {
+      const q = round.questions[qi];
+      return q !== undefined ? q.points : 1;
+    }
+    if (isImageBuzzRound(round)) {
+      const sl = round.slides[qi];
+      if (sl === undefined) return 1;
+      return typeof sl.points === "number" && sl.points > 0 ? sl.points : 1;
+    }
+    return 1;
   }
 }

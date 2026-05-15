@@ -128,6 +128,8 @@ function deriveGameBoard(
     const slide = round.slides[qi];
     const url = slide.imageUrl.trim();
     if (url === "") return null;
+    const awardPoints =
+      typeof slide.points === "number" && slide.points > 0 ? slide.points : 1;
     const base = {
       kind: "image_buzz" as const,
       packTitle: pack.title,
@@ -137,6 +139,7 @@ function deriveGameBoard(
       slideIndexHuman: qi + 1,
       slideCount: round.slides.length,
       imageUrl: url,
+      awardPoints,
     };
     const cap = slide.prompt?.trim();
     return cap !== undefined && cap !== "" ? { ...base, prompt: cap } : base;
