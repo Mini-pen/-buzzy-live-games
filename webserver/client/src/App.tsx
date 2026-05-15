@@ -29,7 +29,7 @@ interface PartyGameBoardVideo {
   replaySerial: number;
 }
 
-/** * External page shown inside an iframe manche. */
+/** * Legacy « page web » manche — never embedded client-side ; link-out only for older scénarios. */
 interface PartyGameBoardIframe {
   kind: "iframe";
   title: string;
@@ -937,10 +937,13 @@ function GameBoardPanel(props: {
           />
         </div>
         <p className="bz-board-embed-hint bz-muted">
-          Si une vérification « anti-robot » ou un écran vide apparaît : désactivez le bloqueur de publicités
-          pour cette page ( le lecteur appelle aussi des domaines comme{" "}
-          <code className="bz-code">doubleclick.net</code> ), testez hors navigation privée stricte, ou ouvrez la
-          vidéo dans un nouvel onglet YouTube depuis l’ordinateur animateur.
+          Une vidéo peut refuser totalement la lecture dans un cadre si l&apos;auteur l&apos;a interdit («
+          Autoriser l&apos;intégration »), si elle est géo-bloquée, soumise à une limite d&apos;âge, ou privée /
+          liste restreinte. Dans ce cas même un lien nocookie échoue — choisis une autre vidéo ou ouvre-la sur{" "}
+          <code className="bz-code">youtube.com</code> dans un onglet séparé. Si l&apos;écran semble cassé alors
+          que l&apos;intégration est autorisée : désactivez le bloqueur de pub pour ce site ( lecteur +{" "}
+          <code className="bz-code">googlevideo</code>/<code className="bz-code">doubleclick.net</code> ), évitez
+          la navigation privée stricte, ou désactivez un anti-tracking trop agressif.
         </p>
       </section>
     );
@@ -948,30 +951,33 @@ function GameBoardPanel(props: {
 
   if (board !== null && board.kind === "iframe") {
     return (
-      <section className="bz-board">
+      <section className="bz-board bz-board--external-site">
         <div className="bz-board-meta">
           <span className="bz-pill bz-info">
             <span className="bz-dot" />
-            page web
+            page externe (hors cadre)
           </span>
           <span>{board.title}</span>
         </div>
-        <div className="bz-board-embed-wrap">
-          <iframe
-            key={board.replaySerial}
-            title={board.title}
-            src={board.url}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
+        <p className="bz-board-external-lead">
+          Ce type de page ne peut pas être affiché dans Buzzy : les sites sérieux envoient des en-têtes (
+          <code className="bz-code">X-Frame-Options</code>, <code className="bz-code">Content-Security-Policy</code>
+          ) qui interdisent l&apos;intégration pour des raisons de sécurité. Ouvre le lien depuis un navigateur
+          pleine page (projecteur ou appareil des joueurs).
+        </p>
+        <div className="bz-board-external-actions">
+          <a
+            className="bz-primary-link"
+            href={board.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ouvrir « {board.title} » dans un nouvel onglet
+          </a>
         </div>
-        <p className="bz-board-embed-hint bz-muted">
-          Beaucoup de sites interdisent l’affichage dans un autre domaine : si la console signale une erreur «{" "}
-          <code className="bz-code">frame-ancestors</code> » ou «{" "}
-          <code className="bz-code">X-Frame-Options</code>
-          », le site doit être ouvert hors Buzzy — pour une vidéo YouTube officielle utilisez toujours le type «
-          Vidéo YouTube », pas une URL en iframe générique.
+        <p className="bz-muted" style={{ fontSize: "0.92rem", marginBottom: 0 }}>
+          Ancienne manche « page dans un cadre » — supprime-la du scénario si tu préfères ne plus l&apos;utiliser.
+          Pour une vidéo hébergée sur YouTube, ajoute une manche « Vidéo YouTube » à la place.
         </p>
       </section>
     );
@@ -983,7 +989,7 @@ function GameBoardPanel(props: {
         <h2>Zone de jeu</h2>
         <p>
           Rien à afficher pour l&apos;instant : la manche n&apos;a pas encore de surface jouable (quiz à lancer depuis
-          l&apos;animateur, média iframe/YouTube en chargement ou indisponible).
+          l&apos;animateur ou média en chargement / indisponible).
         </p>
       </section>
     );
@@ -1274,9 +1280,7 @@ function Play(): JSX.Element {
             <span className="bz-pill">buzzer fermé</span>
             <p>
               {snap.gameBoard !== null &&
-              (snap.gameBoard.kind === "video" ||
-                snap.gameBoard.kind === "youtube" ||
-                snap.gameBoard.kind === "iframe")
+              (snap.gameBoard.kind === "video" || snap.gameBoard.kind === "youtube")
                 ? "Regarde la vidéo — l'animateur peut la relancer pour tout le monde."
                 : snap.state === "lobby"
                 ? "En attente du démarrage de la manche par l'animateur."
@@ -1383,13 +1387,12 @@ function Admin(): JSX.Element {
   /** * Bumped to replay the bootstrap fetch without changing Bearer or party id (network flake). */
   const [adminBootstrapRetryNonce, setAdminBootstrapRetryNonce] = useState(0);
 
-  /** * Popup: append a scripted manche (pack, iframe site, or YouTube). */
+  /** * Popup: append a scripted manche (quiz pack or YouTube). */
   const [addMancheOpen, setAddMancheOpen] = useState(false);
-  /** * `"pack"` = quiz JSON pack ; `"site"` = iframe or pasted YouTube watch URL. */
+  /** * `"pack"` = quiz JSON pack ; `"site"` = pasted YouTube watch URL. */
   const [addMancheFlavor, setAddMancheFlavor] = useState<"pack" | "site">("pack");
   const [modalPackBasename, setModalPackBasename] = useState("");
   const [modalMancheTitle, setModalMancheTitle] = useState("");
-  const [modalSiteKind, setModalSiteKind] = useState<"iframe" | "youtube">("iframe");
   const [modalSiteUrl, setModalSiteUrl] = useState("");
   const [deltaById, setDeltaById] = useState<Record<string, string>>({});
 
@@ -1545,10 +1548,7 @@ function Admin(): JSX.Element {
         if (urlRaw === "") {
           throw new Error("validation:URL obligatoire.");
         }
-        const body =
-          modalSiteKind === "iframe"
-            ? { kind: "iframe", title, url: urlRaw }
-            : { kind: "youtube", title, url: urlRaw };
+        const body = { kind: "youtube" as const, title, url: urlRaw };
         const p = await callHostSnapshot(`${hostBasePath}/host/manche/add`, "POST", body);
         setSnap(p);
       }
@@ -1564,7 +1564,6 @@ function Admin(): JSX.Element {
     hostBasePath,
     modalMancheTitle,
     modalPackBasename,
-    modalSiteKind,
     modalSiteUrl,
     packsList,
   ]);
@@ -2120,7 +2119,7 @@ function Admin(): JSX.Element {
                   onClick={() => setAddMancheFlavor("site")}
                   className="bz-modal-tab"
                 >
-                  Site (iframe) ou YouTube
+                  Vidéo YouTube
                 </button>
               </div>
 
@@ -2178,48 +2177,8 @@ function Admin(): JSX.Element {
                       onChange={(ev2) => setModalMancheTitle(ev2.target.value)}
                     />
                   </label>
-                  <fieldset className="bz-modal-fieldset">
-                    <legend>Type de lien</legend>
-                    <label
-                      style={{
-                        display: "flex",
-                        gap: 8,
-                        alignItems: "center",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="modal-site-kind"
-                        checked={modalSiteKind === "iframe"}
-                        onChange={() => setModalSiteKind("iframe")}
-                      />
-                      Page web (HTTPS) dans un iframe
-                    </label>
-                    <label
-                      style={{
-                        display: "flex",
-                        gap: 8,
-                        alignItems: "center",
-                        cursor: "pointer",
-                        marginTop: 8,
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="modal-site-kind"
-                        checked={modalSiteKind === "youtube"}
-                        onChange={() => setModalSiteKind("youtube")}
-                      />
-                      Vidéo YouTube (lien youtube.com ou youtu.be)
-                    </label>
-                  </fieldset>
                   <label style={{ display: "block" }}>
-                    URL complète (
-                    {modalSiteKind === "iframe"
-                      ? "https://… uniquement pour l’iframe"
-                      : "coller depuis le navigateur"}
-                    )
+                    URL YouTube complète (coller depuis le navigateur)
                     <input
                       type="url"
                       autoComplete="url"
@@ -2229,30 +2188,17 @@ function Admin(): JSX.Element {
                         marginTop: 6,
                         boxSizing: "border-box",
                       }}
-                      placeholder={
-                        modalSiteKind === "iframe"
-                          ? "https://…"
-                          : "https://www.youtube.com/watch?v=…"
-                      }
+                      placeholder={"https://www.youtube.com/watch?v=…"}
                       value={modalSiteUrl}
                       onChange={(ev2) => setModalSiteUrl(ev2.target.value)}
                     />
                   </label>
                   <p className="bz-modal-embed-tip">
-                    {modalSiteKind === "youtube" ? (
-                      <>
-                        Lecture optimisée via{" "}
-                        <code className="bz-code">youtube-nocookie.com</code>. Une extension anti-pub peut afficher{" "}
-                        <code className="bz-code">ERR_BLOCKED_BY_CLIENT</code>
-                        dans la console même si la vidéo fonctionne encore.
-                      </>
-                    ) : (
-                      <>
-                        Beaucoup de sites bloquent tout cadre tiers ( erreur{" "}
-                        <code className="bz-code">frame-ancestors</code>
-                        ). Pour YouTube officiel utilisez l’option « Vidéo YouTube », pas cette URL en iframe générique.
-                      </>
-                    )}
+                    Lecture dans Buzzy via{" "}
+                    <code className="bz-code">youtube-nocookie.com</code>. Une vidéo peut refuser tout lecteur externe si
+                    l&apos;auteur désactive l&apos;intégration ou pose des restrictions d&apos;âge / géo / liste
+                    privée — ce n&apos;est pas configurable côté Buzzy. Une extension anti-pub peut aussi afficher{" "}
+                    <code className="bz-code">ERR_BLOCKED_BY_CLIENT</code> alors que la lecture reste audible.
                   </p>
                 </>
               )}

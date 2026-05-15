@@ -93,17 +93,6 @@ const addManchePackBody = z.object({
   packBasename: z.string().min(1).max(180),
 });
 
-const addMancheIframeBody = z
-  .object({
-    kind: z.literal("iframe"),
-    title: z.string().min(1).max(160),
-    url: z.string().url().max(2048),
-  })
-  .refine((b) => b.url.startsWith("https:"), {
-    message: "HTTPS_REQUIRED",
-    path: ["url"],
-  });
-
 const addMancheYoutubeBody = z.object({
   kind: z.literal("youtube"),
   title: z.string().min(1).max(160),
@@ -123,7 +112,6 @@ const addMancheDirectVideoBody = z
 
 const addMancheBody = z.union([
   addManchePackBody,
-  addMancheIframeBody,
   addMancheYoutubeBody,
   addMancheDirectVideoBody,
 ]);
@@ -468,17 +456,6 @@ export async function registerPartyRoutes(
             title: body.title.trim(),
             packBasename: basename,
             iframeUrl: null,
-            youtubeEmbedUrl: null,
-            directVideoUrl: null,
-            savedRoundIndex: 0,
-            savedQuestionIndex: 0,
-          });
-        } else if (body.kind === "iframe") {
-          store.hostAppendManche(party, {
-            kind: "iframe",
-            title: body.title.trim(),
-            packBasename: null,
-            iframeUrl: body.url,
             youtubeEmbedUrl: null,
             directVideoUrl: null,
             savedRoundIndex: 0,

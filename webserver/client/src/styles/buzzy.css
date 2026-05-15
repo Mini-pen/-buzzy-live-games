@@ -672,6 +672,35 @@ html, body {
   font-size: 12px;
   line-height: 1.5;
 }
+.bz-app .bz-board--external-site .bz-board-external-lead {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--bz-text);
+}
+.bz-app .bz-board-external-actions {
+  margin: 20px 0 0;
+}
+.bz-app .bz-primary-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: var(--bz-r-md);
+  font-weight: 600;
+  text-decoration: none;
+  background: color-mix(in oklab, var(--bz-accent) 88%, transparent);
+  color: var(--bz-accent-ink);
+  border: 1px solid color-mix(in oklab, var(--bz-accent) 45%, transparent);
+}
+.bz-app .bz-primary-link:hover {
+  filter: brightness(1.06);
+}
+.bz-app .bz-primary-link:focus-visible {
+  outline: 3px solid var(--bz-accent-soft);
+  outline-offset: 2px;
+}
 .bz-app .bz-board-answer { margin: 14px 0 0; font-size: 14px; color: var(--bz-muted); }
 .bz-app .bz-modal-embed-tip {
   margin: 12px 0 0;
