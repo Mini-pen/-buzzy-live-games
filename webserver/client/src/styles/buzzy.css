@@ -1073,3 +1073,260 @@ html, body {
   font-size: 12px;
   white-space: pre-wrap;
 }
+
+.bz-broadcast {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 50% 120%, color-mix(in oklab, var(--bz-accent) 14%, transparent), transparent 60%),
+    var(--bz-bg);
+  color: var(--bz-text);
+  font-family: var(--bz-f-body);
+  display: flex;
+  flex-direction: column;
+  padding: clamp(28px, 4vw, 56px) clamp(28px, 5vw, 64px);
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+}
+.bz-broadcast * { box-sizing: border-box; }
+.bz-broadcast h1, .bz-broadcast h2 {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: var(--bz-text-strong);
+  line-height: 1.0;
+  margin: 0;
+}
+
+.bz-bc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  position: relative;
+}
+.bz-bc-header .bz-logo { font-size: clamp(24px, 3vw, 36px); }
+.bz-bc-header-right { display: flex; align-items: center; gap: 16px; }
+.bz-bc-code-chip {
+  font-family: var(--bz-f-mono);
+  font-size: clamp(14px, 1.4vw, 20px);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+}
+.bz-bc-qr { padding: 8px; background: white; border-radius: 10px; line-height: 0; }
+
+.bz-bc-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  min-height: 0;
+  position: relative;
+}
+.bz-bc-meta {
+  font-family: var(--bz-f-mono);
+  font-size: clamp(14px, 1.5vw, 20px);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+}
+.bz-bc-prompt {
+  font-size: clamp(48px, 7.5vw, 128px);
+  margin: 0;
+}
+.bz-bc-choices {
+  display: grid;
+  gap: clamp(10px, 1.2vw, 18px);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bz-bc-choices[data-count="2"] { grid-template-columns: 1fr 1fr; }
+.bz-bc-choices[data-count="3"] { grid-template-columns: repeat(3, 1fr); }
+.bz-bc-choices[data-count="4"] { grid-template-columns: repeat(4, 1fr); }
+.bz-bc-choices[data-count="5"],
+.bz-bc-choices[data-count="6"] { grid-template-columns: repeat(3, 1fr); }
+.bz-bc-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: clamp(16px, 1.8vw, 26px) clamp(18px, 2vw, 26px);
+  border-radius: 18px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  margin: 0;
+}
+.bz-bc-choice-letter {
+  width: clamp(40px, 4vw, 56px);
+  height: clamp(40px, 4vw, 56px);
+  border-radius: 14px;
+  background: var(--bz-surface-2);
+  color: var(--bz-text);
+  font-family: var(--bz-f-mono);
+  font-weight: 700;
+  font-size: clamp(16px, 1.6vw, 24px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.bz-bc-choice-text {
+  font-size: clamp(18px, 1.8vw, 30px);
+  font-weight: 600;
+  color: var(--bz-text);
+}
+
+.bz-bc-video {
+  width: 100%;
+  max-height: 62vh;
+  border-radius: 18px;
+  background: #000;
+  display: block;
+}
+
+/* Lobby — large QR + welcome */
+.bz-bc-lobby {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: clamp(28px, 4vw, 64px);
+  align-items: center;
+}
+.bz-bc-lobby-title {
+  font-size: clamp(56px, 9vw, 140px);
+}
+.bz-bc-lobby-sub {
+  font-size: clamp(20px, 2vw, 28px);
+  color: var(--bz-muted);
+  margin: 16px 0 24px;
+  max-width: 720px;
+}
+.bz-bc-lobby-code {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: clamp(96px, 14vw, 200px);
+  letter-spacing: -0.04em;
+  color: var(--bz-accent);
+  line-height: 1;
+}
+.bz-bc-lobby-qr {
+  padding: 16px;
+  background: white;
+  border-radius: 24px;
+}
+
+/* Footer — buzz queue + team scores */
+.bz-bc-footer {
+  display: flex;
+  gap: clamp(20px, 3vw, 48px);
+  align-items: flex-end;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+.bz-bc-queue { flex: 1; min-width: 0; }
+.bz-bc-queue h3 {
+  font-family: var(--bz-f-mono);
+  font-size: clamp(11px, 1vw, 14px);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--bz-muted);
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+.bz-bc-queue-list {
+  display: flex;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.bz-bc-queue-list li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: var(--bz-surface);
+  border: 1px solid var(--bz-line);
+  border-radius: 16px;
+  margin: 0;
+}
+.bz-bc-queue-list li:first-child {
+  background: var(--bz-accent-soft);
+  border-color: var(--bz-accent);
+}
+.bz-bc-queue-rank {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: clamp(28px, 3vw, 40px);
+  color: var(--bz-muted);
+  line-height: 1;
+}
+.bz-bc-queue-list li:first-child .bz-bc-queue-rank { color: var(--bz-accent); }
+.bz-bc-queue-name { font-size: clamp(18px, 1.8vw, 24px); font-weight: 700; color: var(--bz-text-strong); }
+
+.bz-bc-teams { display: flex; gap: clamp(20px, 3vw, 40px); }
+.bz-bc-team { text-align: right; }
+.bz-bc-team-label {
+  font-family: var(--bz-f-mono);
+  font-size: clamp(10px, 1vw, 13px);
+  letter-spacing: 0.2em;
+  color: var(--bz-muted);
+  text-transform: uppercase;
+}
+.bz-bc-team-value {
+  font-family: var(--bz-f-display);
+  font-weight: 800;
+  font-size: clamp(56px, 7vw, 96px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.bz-bc-team:nth-child(1) .bz-bc-team-value { color: var(--bz-accent); }
+.bz-bc-team:nth-child(2) .bz-bc-team-value { color: var(--bz-info); }
+.bz-bc-team:nth-child(3) .bz-bc-team-value { color: var(--bz-good); }
+.bz-bc-team:nth-child(4) .bz-bc-team-value { color: var(--bz-bad); }
+
+/* Between rounds / ended */
+.bz-bc-end {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  align-items: center;
+  justify-content: center;
+}
+.bz-bc-end h1 { font-size: clamp(72px, 12vw, 200px); }
+
+.bz-bc-loading,
+.bz-bc-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--bz-f-mono);
+  font-size: 16px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.bz-bc-error { color: var(--bz-bad); }
+.bz-bc-loading { color: var(--bz-muted); }
+
+/* Small floating "back" link, just in case the host clicks the broadcast tab */
+.bz-bc-exit {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 11px;
+  font-family: var(--bz-f-mono);
+  color: var(--bz-faint);
+  text-decoration: none;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  z-index: 100;
+}
+.bz-bc-exit:hover { color: var(--bz-text); }

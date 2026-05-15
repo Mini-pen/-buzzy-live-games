@@ -1773,6 +1773,15 @@ function Admin(): JSX.Element {
                     buzzer ouvert
                   </span>
                 ) : null}
+				<a
+					href={`/party/${encodeURIComponent(pid)}/broadcast`}
+					target="_blank"
+					rel="noreferrer"
+					className="bz-cta"
+					style={{ height: 40, alignSelf: "flex-start", fontSize: 13 }}
+				>
+				📺 Ouvrir la diffusion (nouvel onglet)
+				</a>
               </div>
             </div>
             <div className="bz-host-hero-qr">
@@ -1965,6 +1974,232 @@ function Admin(): JSX.Element {
         </aside>
       </div>
     </Shell>
+  );
+}
+
+function Broadcast(): JSX.Element {
+  const { partyId } = useParams<{ partyId: string }>();
+  const pid = canonicalPartyIdFromRoute(partyId);
+  const [snap, setSnap] = useState<PartySnapshot | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  // If the host opened this tab in the same browser as Admin, we can
+  // reuse the admin bearer for a true live socket. Otherwise we poll.
+  const adminToken = pid ? peekAdminBearer(pid) : null;
+
+  useEffect(() => {
+    if (!pid) return undefined;
+    let cancelled = false;
+
+    void fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(pid)}`)
+      .then((s) => {
+        if (!cancelled) setSnap(s);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(String(e));
+      });
+
+    if (adminToken !== null && adminToken !== "") {
+      const s: Socket = io({
+        transports: ["websocket", "polling"],
+        auth: { partyId: pid, bearer: adminToken, role: "admin" },
+      });
+      const onSnap = (p: PartySnapshot) => setSnap(p);
+      s.on("party:patch", onSnap);
+      return (): void => {
+        cancelled = true;
+        s.off("party:patch", onSnap);
+        s.disconnect();
+      };
+    }
+
+    const id = setInterval(() => {
+      void fetchJson<PartySnapshot>(`/api/parties/${encodeURIComponent(pid)}`)
+        .then((s) => {
+          if (!cancelled) setSnap(s);
+        })
+        .catch(() => {
+          /* keep last good snapshot on transient errors */
+        });
+    }, 1500);
+    return (): void => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [pid, adminToken]);
+
+  if (!pid) return <Navigate to="/" replace />;
+
+  if (snap === null) {
+    return (
+      <div className="bz-broadcast">
+        <div className={err === null ? "bz-bc-loading" : "bz-bc-error"}>
+          {err === null ? "Connexion à la partie…" : "Partie introuvable."}
+        </div>
+      </div>
+    );
+  }
+
+  const joinUrl = `${window.location.origin}/join?code=${encodeURIComponent(snap.joinCode)}`;
+  const board = snap.gameBoard;
+  const quizBoard = board !== null && board.kind === "quiz" ? board : null;
+  const videoBoard = board !== null && board.kind === "video" ? board : null;
+  const teamEntries = Object.entries(snap.teamScores ?? {})
+    .map(([id, score]) => ({ id: Number(id), score }))
+    .sort((a, b) => a.id - b.id);
+
+  return (
+    <div className="bz-broadcast">
+      <Link to={`/party/${encodeURIComponent(pid)}/admin`} className="bz-bc-exit">
+        ← retour tableau
+      </Link>
+
+      <header className="bz-bc-header">
+        <span className="bz-logo" style={{ fontSize: 36 }}>
+          <span>buzzy</span>
+          <span className="bz-logo-dot" />
+        </span>
+        <div className="bz-bc-header-right">
+          <span
+            className={`bz-pill ${snap.state === "round_active" ? "bz-live" : ""}`}
+          >
+            {snap.state === "round_active" ? <span className="bz-dot" /> : null}
+            {snap.state}
+          </span>
+          <span className="bz-bc-code-chip">{snap.joinCode}</span>
+          <div className="bz-bc-qr">
+            <QRCodeSVG value={joinUrl} size={96} level="M" />
+          </div>
+        </div>
+      </header>
+
+      <main className="bz-bc-stage">
+        {snap.state === "lobby" ? (
+          <div className="bz-bc-lobby">
+            <div>
+              <span className="bz-eyebrow" style={{ fontSize: 18 }}>
+                scanne · rejoins · joue
+              </span>
+              <h1 className="bz-bc-lobby-title">Buzzy.</h1>
+              <p className="bz-bc-lobby-sub">
+                {snap.players.length === 0
+                  ? "En attente des joueurs."
+                  : `${snap.players.length} joueur${snap.players.length === 1 ? "" : "s"} déjà dans le lobby.`}
+              </p>
+              <div className="bz-bc-lobby-code">{snap.joinCode}</div>
+            </div>
+            <div className="bz-bc-lobby-qr">
+              <QRCodeSVG value={joinUrl} size={320} level="M" includeMargin />
+            </div>
+          </div>
+        ) : null}
+
+        {snap.state === "round_active" && quizBoard !== null ? (
+          <>
+            <div className="bz-bc-meta">
+              Manche {quizBoard.roundNumberHuman} · Question{" "}
+              {quizBoard.questionIndexInRound + 1} · +{quizBoard.points}{" "}
+              {quizBoard.points === 1 ? "pt" : "pts"}
+            </div>
+            <h1 className="bz-bc-prompt">{quizBoard.prompt}</h1>
+            <ol className="bz-bc-choices" data-count={quizBoard.choices.length}>
+              {quizBoard.choices.map((c, i) => (
+                <li
+                  key={`${quizBoard.roundIndex}-${quizBoard.questionIndexInRound}-${i}`}
+                  className="bz-bc-choice"
+                >
+                  <span className="bz-bc-choice-letter">
+                    {String.fromCharCode(65 + i)}
+                  </span>
+                  <span className="bz-bc-choice-text">{c}</span>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : null}
+
+        {snap.state === "round_active" && videoBoard !== null ? (
+          <>
+            <div className="bz-bc-meta">
+              Manche {videoBoard.roundNumberHuman} — {videoBoard.roundTitle}
+            </div>
+            <video
+              key={videoBoard.replaySerial}
+              autoPlay
+              controls
+              playsInline
+              preload="auto"
+              className="bz-bc-video"
+              src={videoBoard.videoUrl}
+            >
+              Lecture vidéo non supportée par ce navigateur.
+            </video>
+          </>
+        ) : null}
+
+        {snap.state === "round_active" && board === null ? (
+          <div className="bz-bc-meta">
+            En attente — l'animateur doit charger un pack quiz.
+          </div>
+        ) : null}
+
+        {snap.state === "between_rounds" || snap.state === "ended" ? (
+          <div className="bz-bc-end">
+            <h1>{snap.state === "ended" ? "Bravo." : "Pause."}</h1>
+            {teamEntries.length > 0 ? (
+              <div style={{ display: "flex", gap: 48 }}>
+                {teamEntries.map((t) => (
+                  <div key={t.id} className="bz-bc-team">
+                    <div className="bz-bc-team-label">Équipe {t.id}</div>
+                    <div className="bz-bc-team-value">{t.score}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </main>
+
+      {snap.state === "round_active" ? (
+        <footer className="bz-bc-footer">
+          <div className="bz-bc-queue">
+            <h3>
+              {snap.buzzOrder.length > 0
+                ? "File de buzz"
+                : snap.buzzWindowOpen
+                  ? "Buzzer ouvert · personne n'a buzzé"
+                  : "Buzzer fermé"}
+            </h3>
+            {snap.buzzOrder.length > 0 ? (
+              <ol className="bz-bc-queue-list">
+                {snap.buzzOrder.slice(0, 3).map((idBuzz, idx) => {
+                  const pl = snap.players.find((p) => p.id === idBuzz);
+                  return (
+                    <li key={`${idBuzz}-${idx}`}>
+                      <span className="bz-bc-queue-rank">{idx + 1}</span>
+                      <span className="bz-bc-queue-name">
+                        {pl?.displayName ?? idBuzz}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : null}
+          </div>
+
+          {teamEntries.length > 0 ? (
+            <div className="bz-bc-teams">
+              {teamEntries.map((t) => (
+                <div key={t.id} className="bz-bc-team">
+                  <div className="bz-bc-team-label">Équipe {t.id}</div>
+                  <div className="bz-bc-team-value">{t.score}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </footer>
+      ) : null}
+    </div>
   );
 }
 
