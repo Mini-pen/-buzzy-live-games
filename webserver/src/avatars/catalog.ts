@@ -2,19 +2,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** * Image files served under `/avatars/*` relative to the Vite-spa bundle. */
+/** * Image files served under `/avatars/…` relative to the avatars root directory. */
 const IMAGE_EXTENSIONS = new Set([".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"]);
 
 export interface AvatarCatalogEntry {
-  /** * Basename as stored with the player (`avatarKey`). */
+  /** * Relative path under the avatars root (e.g. `base/avatar_1.png`), used as `avatarKey`. */
   key: string;
   label: string;
 }
 
 interface CatalogCache {
-  dir: string;
+  root: string;
   entries: ReadonlyArray<AvatarCatalogEntry>;
-  /** * Lowercase basename → canonical on-disk basename. */
+  /** * Lowercase relative key → canonical stored key. */
   lowerToCanonicalKey: Map<string, string>;
 }
 
@@ -29,21 +29,84 @@ function webserverPkgRoot(): string {
   return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 }
 
-/** * Prefer source `client/public/avatars` in a dev tree; fall back to Vite-built `dist/client/avatars`. */
-export function resolveAvatarsDir(): string | null {
-  const root = webserverPkgRoot();
-  const ordered = [
-    path.join(root, "client", "public", "avatars"),
-    path.join(root, "dist", "client", "avatars"),
-  ];
-  for (const dir of ordered) {
-    try {
-      if (fs.statSync(dir).isDirectory()) return dir;
-    } catch {
-      continue;
+function candidateAvatarRoots(): string[] {
+  const out: string[] = [];
+  const fromEnv = process.env.AVATARS_DIR?.trim();
+  if (typeof fromEnv === "string" && fromEnv !== "") out.push(path.resolve(fromEnv));
+  const pkg = webserverPkgRoot();
+  out.push(path.resolve(pkg, "..", "avatars"));
+  out.push(path.join(pkg, "client", "public", "avatars"));
+  out.push(path.join(pkg, "dist", "client", "avatars"));
+  return out;
+}
+
+function isDir(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function collectImageFilesRecursive(absRoot: string, relPrefix: string, acc: string[]): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(absRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    const name = e.name;
+    if (name === "." || name === "..") continue;
+    const rel = relPrefix === "" ? name : `${relPrefix}/${name}`;
+    const abs = path.join(absRoot, name);
+    if (e.isDirectory()) {
+      collectImageFilesRecursive(abs, rel, acc);
+    } else if (e.isFile()) {
+      const ext = path.extname(name).toLowerCase();
+      if (!IMAGE_EXTENSIONS.has(ext)) continue;
+      acc.push(rel.replace(/\\/gu, "/"));
     }
   }
+}
+
+function buildCatalogForRoot(rootAbs: string): CatalogCache | null {
+  const normalizedRoot = path.resolve(rootAbs);
+  if (!isDir(normalizedRoot)) return null;
+  const relKeys: string[] = [];
+  collectImageFilesRecursive(normalizedRoot, "", relKeys);
+  relKeys.sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+  const lowerToCanonicalKey = new Map<string, string>();
+  const entriesUncached: AvatarCatalogEntry[] = [];
+  const seenLower = new Set<string>();
+  for (const relKey of relKeys) {
+    const lower = relKey.toLowerCase();
+    if (seenLower.has(lower)) continue;
+    seenLower.add(lower);
+    lowerToCanonicalKey.set(lower, relKey);
+    const base = path.basename(relKey);
+    const stem = path.parse(base).name;
+    entriesUncached.push({
+      key: relKey,
+      label: avatarLabelFromFilenameStem(stem),
+    });
+  }
+  if (entriesUncached.length === 0) return null;
+  return { root: normalizedRoot, entries: entriesUncached, lowerToCanonicalKey };
+}
+
+/** * First avatars root that contains at least one image (recursive). Exposed for HTTP static registration. */
+export function resolveAvatarsServingRoot(): string | null {
+  for (const raw of candidateAvatarRoots()) {
+    const built = buildCatalogForRoot(raw);
+    if (built !== null) return built.root;
+  }
   return null;
+}
+
+/** * Prefer `AVATARS_DIR`, then repo root `avatars/`, then legacy Vite public folders. */
+export function resolveAvatarsDir(): string | null {
+  return resolveAvatarsServingRoot();
 }
 
 /** * Readable label from optional filename stem. */
@@ -53,68 +116,21 @@ export function avatarLabelFromFilenameStem(stem: string): string {
   return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1).toLowerCase();
 }
 
-function normalizeCatalog(dir: string, names: string[]): CatalogCache | null {
-  const entriesUncached: AvatarCatalogEntry[] = [];
-  const lowerToCanonicalKey = new Map<string, string>();
-  const seenLower = new Set<string>();
-
-  for (const name of names) {
-    const ext = path.extname(name).toLowerCase();
-    if (!IMAGE_EXTENSIONS.has(ext)) continue;
-    const abs = path.join(dir, name);
-    try {
-      if (!fs.statSync(abs).isFile()) continue;
-    } catch {
-      continue;
-    }
-    const lower = name.toLowerCase();
-    if (seenLower.has(lower)) continue;
-    seenLower.add(lower);
-    const stem = path.parse(name).name;
-    entriesUncached.push({
-      key: name,
-      label: avatarLabelFromFilenameStem(stem),
-    });
-    lowerToCanonicalKey.set(lower, name);
-  }
-
-  entriesUncached.sort((a, b) => a.key.localeCompare(b.key, "en", { sensitivity: "base" }));
-
-  if (entriesUncached.length === 0) return null;
-  return {
-    dir,
-    entries: entriesUncached,
-    lowerToCanonicalKey,
-  };
-}
-
 function loadCatalog(): CatalogCache {
   if (cache !== null) return cache;
 
-  const dir = resolveAvatarsDir();
-  if (dir === null) {
-    console.warn("[avatars] No avatars directory found (client/public/avatars or dist/client/avatars).");
-    cache = { dir: "", entries: [], lowerToCanonicalKey: new Map() };
-    return cache;
+  for (const raw of candidateAvatarRoots()) {
+    const built = buildCatalogForRoot(raw);
+    if (built !== null) {
+      cache = built;
+      return cache;
+    }
   }
 
-  let names: string[] = [];
-  try {
-    names = fs.readdirSync(dir);
-  } catch (e) {
-    console.warn("[avatars] Failed to read directory:", dir, e);
-    cache = { dir, entries: [], lowerToCanonicalKey: new Map() };
-    return cache;
-  }
-
-  const built = normalizeCatalog(dir, names);
-  if (built === null) {
-    console.warn(`[avatars] No image files in ${dir}.`);
-    cache = { dir, entries: [], lowerToCanonicalKey: new Map() };
-    return cache;
-  }
-
-  cache = built;
+  console.warn(
+    "[avatars] No usable avatars directory (set AVATARS_DIR or add images under buzzy-live-games/avatars/).",
+  );
+  cache = { root: "", entries: [], lowerToCanonicalKey: new Map() };
   return cache;
 }
 
@@ -126,30 +142,47 @@ export function getAvatarCatalog(): ReadonlyArray<AvatarCatalogEntry> {
 /** * First item after sort; empty string if no assets. */
 export function getDefaultAvatarKey(): string {
   const c = getAvatarCatalog();
-  return c.length === 0 ? "" : c[0].key;
+  return c.length === 0 ? "" : c[0]!.key;
 }
 
-/** * Relative URL baked into snapshots (same-origin). */
+/** * Relative URL baked into snapshots (slash-safe). */
 export function avatarPublicRelativePath(key: string): string {
-  return `/avatars/${encodeURIComponent(key)}`;
+  const norm = key.replace(/\\/gu, "/").trim();
+  const parts = norm.split("/").filter((p) => p !== "" && p !== "." && p !== "..");
+  if (parts.length === 0) return "/avatars/";
+  return `/avatars/${parts.map((p) => encodeURIComponent(p)).join("/")}`;
+}
+
+function isSafeRelativeAvatarKey(norm: string): boolean {
+  if (norm === "" || norm.length > 240) return false;
+  const segments = norm.split("/").filter(Boolean);
+  if (segments.length === 0) return false;
+  for (const seg of segments) {
+    if (seg === ".." || seg === ".") return false;
+  }
+  return true;
 }
 
 /** * Returns a verified key from user input or `null`. */
 export function tryParseAvatarKey(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
-  if (trimmed === "" || trimmed.length > 120) return null;
-  if (trimmed.includes("..") || trimmed.includes("/") || trimmed.includes("\\")) return null;
+  const norm = trimmed.replace(/\\/gu, "/");
+  if (!isSafeRelativeAvatarKey(norm)) return null;
 
   const { entries, lowerToCanonicalKey } = loadCatalog();
   if (entries.length === 0) return null;
 
-  const lower = trimmed.toLowerCase();
-  const exact = lowerToCanonicalKey.get(lower);
+  const lowerFull = norm.toLowerCase();
+  const exact = lowerToCanonicalKey.get(lowerFull);
   if (exact !== undefined) return exact;
 
-  // * Legacy: join sent only the stem (e.g. "fox") when every asset was `fox.svg`.
-  if (!trimmed.includes(".")) {
+  if (!norm.includes("/")) {
+    const lowerStem = trimmed.toLowerCase();
+    const stemHits = entries.filter(
+      (e) => path.parse(e.key).name.toLowerCase() === lowerStem,
+    );
+    if (stemHits.length === 1) return stemHits[0]!.key;
     for (const ext of IMAGE_EXTENSIONS) {
       const candidate = `${trimmed}${ext}`;
       const c = lowerToCanonicalKey.get(candidate.toLowerCase());

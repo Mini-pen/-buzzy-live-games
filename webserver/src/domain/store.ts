@@ -3,14 +3,21 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { nanoid } from "nanoid";
 
 import type { LoadedBuzzSoundCatalog } from "../games/buzzSoundCatalog.js";
-import { defaultBuzzSoundPolicyFromCatalog, resolveBuzzSoundPublicUrl } from "../games/buzzSoundCatalog.js";
+import {
+  defaultBuzzSoundPolicyFromCatalog,
+  isBuzzerClipForPlayerChoice,
+  resolveBuzzSoundPublicUrl,
+} from "../games/buzzSoundCatalog.js";
 import type { QuizPack } from "../games/pack.js";
 import {
   isAudioBlindRound,
   isFreeBuzzRound,
   isImageBuzzRound,
+  isProgressiveGuessRound,
   isQuizRound,
   isVideoRound,
+  progressiveGuessDecode,
+  progressiveGuessTotalFlatSteps,
 } from "../games/pack.js";
 import { parseAvatarKeyOrDefault, requireParsedAvatarKey } from "../avatars/catalog.js";
 import { randomJoinCode, randomSecretHex } from "./codes.js";
@@ -27,7 +34,8 @@ export interface CreatePartyOpts {
 
 export type PartyNotifyMeta =
   | { kind: "buzz_fx"; playerId: string }
-  | { kind: "answer_fx"; url: string };
+  | { kind: "answer_fx"; url: string }
+  | { kind: "party_deleted" };
 
 export type PartyNotifier = (partyId: string, party: Party, meta?: PartyNotifyMeta) => void;
 
@@ -74,8 +82,15 @@ export class PartyStore {
       return this.buzzCatalog.defaultBuzzerKey;
     }
     const k = String(raw).trim();
-    if (!this.buzzCatalog.byKey.has(k)) {
+    const hit = this.buzzCatalog.byKey.get(k);
+    if (!hit) {
       throw Object.assign(new Error("Buzz sound inconnu."), { code: "BUZZ_SOUND_INVALID" });
+    }
+    if (!isBuzzerClipForPlayerChoice(hit)) {
+      throw Object.assign(
+        new Error("Ce clip n’est pas un son de buzzer (choisir uniquement la palette buzzers)."),
+        { code: "BUZZ_SOUND_INVALID" },
+      );
     }
     return k;
   }
@@ -267,6 +282,12 @@ export class PartyStore {
     }
   }
 
+  /** * Notifies then removes the party from memory (irreversible for connected clients). */
+  adminDeleteParty(party: Party): void {
+    this.notify(party.id, party, { kind: "party_deleted" });
+    this.erase(party.id);
+  }
+
   patchPlayerSelf(
     party: Party,
     playerId: string,
@@ -447,11 +468,19 @@ export class PartyStore {
           Math.max(item.savedQuestionIndex, 0),
           Math.max(round.slides.length - 1, 0),
         );
-      } else {
+      } else if (isProgressiveGuessRound(round)) {
+        const maxFlat = progressiveGuessTotalFlatSteps(round);
+        party.currentQuestionIndex = Math.min(
+          Math.max(item.savedQuestionIndex, 0),
+          Math.max(maxFlat - 1, 0),
+        );
+      } else if (isQuizRound(round)) {
         party.currentQuestionIndex = Math.min(
           Math.max(item.savedQuestionIndex, 0),
           Math.max(round.questions.length - 1, 0),
         );
+      } else {
+        party.currentQuestionIndex = 0;
       }
       return;
     }
@@ -610,6 +639,28 @@ export class PartyStore {
         { code: "ROUND_EXHAUSTED" },
       );
     }
+    if (isProgressiveGuessRound(round)) {
+      const qix = party.currentQuestionIndex ?? 0;
+      const nextIx = qix + 1;
+      const total = progressiveGuessTotalFlatSteps(round);
+      if (nextIx < total) {
+        party.currentQuestionIndex = nextIx;
+        party.videoReplaySerial += 1;
+        party.buzzWindowOpen = false;
+        party.buzzOrder = [];
+        this.syncActiveQuizProgressIntoScriptItem(party);
+        this.touch(party);
+        this.broadcast(party);
+        return;
+      }
+      throw Object.assign(
+        new Error("Fin des énigmes de cette manche — passez à la suivante ou mettez en pause."),
+        { code: "ROUND_EXHAUSTED" },
+      );
+    }
+    if (!isQuizRound(round)) {
+      throw Object.assign(new Error("BAD_ROUND"), { code: "BAD_ROUND" });
+    }
     const qi = party.currentQuestionIndex;
     if (qi === null || qi < 0) {
       throw Object.assign(new Error("BAD_QUESTION"), { code: "BAD_QUESTION" });
@@ -748,6 +799,12 @@ export class PartyStore {
       const sl = round.slides[qi];
       if (sl === undefined) return 1;
       return typeof sl.points === "number" && sl.points > 0 ? sl.points : 1;
+    }
+    if (isProgressiveGuessRound(round)) {
+      const pos = progressiveGuessDecode(round, qi);
+      if (pos === null || pos.clueIndex === null) return 0;
+      const clue = pos.item.clues[pos.clueIndex];
+      return clue !== undefined ? clue.points : 1;
     }
     return 1;
   }

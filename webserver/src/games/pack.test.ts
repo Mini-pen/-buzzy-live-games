@@ -6,6 +6,7 @@ import {
   isAudioBlindRound,
   isFreeBuzzRound,
   isImageBuzzRound,
+  isProgressiveGuessRound,
   isVideoRound,
   quizPackSchema,
   scanQuizPacks,
@@ -124,10 +125,36 @@ describe("round discriminators", () => {
     });
     expect(isAudioBlindRound(parsed.rounds[0])).toBe(true);
   });
+
+  test("progressive_guess schema and discriminator", () => {
+    const parsed = quizPackSchema.parse({
+      id: "p",
+      title: "P",
+      version: 1,
+      rounds: [
+        {
+          kind: "progressive_guess",
+          id: "r1",
+          title: "Films",
+          items: [
+            {
+              id: "i1",
+              clues: [
+                { imageUrl: "/games/a.png", points: 2 },
+                { imageUrl: "/games/b.png", points: 1 },
+              ],
+              reveal: { answer: "Titre", imageUrl: "/games/c.png" },
+            },
+          ],
+        },
+      ],
+    });
+    expect(isProgressiveGuessRound(parsed.rounds[0])).toBe(true);
+  });
 });
 
 describe("scanQuizPacks", () => {
-  test("indexes nested pack under guess_by_color/", async () => {
+  test("indexes nested pack under guess_by_color/ (Guess_by_color.json)", async () => {
     const gamesDir = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
       "..",
@@ -136,7 +163,12 @@ describe("scanQuizPacks", () => {
       "games",
     );
     const map = await scanQuizPacks(gamesDir);
-    expect(map.has("guess_by_color/quiz_with_images")).toBe(true);
+    expect(map.has("guess_by_color/Guess_by_color")).toBe(true);
+    const guess = map.get("guess_by_color/Guess_by_color")!;
+    const r0 = guess.rounds[0];
+    if (!isImageBuzzRound(r0)) throw new Error("expected image round");
+    expect(r0.slides[0]?.imageUrl).toMatch(/^\/games\//);
+    expect(map.has("guess_the_movie")).toBe(true);
   });
 });
 
@@ -177,6 +209,31 @@ describe("quizPackSchema · question.imageUrl", () => {
     const r0 = parsed.rounds[0];
     if (!("questions" in r0)) throw new Error("expected quiz round");
     expect(r0.questions[0]?.imageUrl).toBe("/games/foo/bar.png");
+  });
+
+  test("accepts games/… relative paths and normalizes to /games/…", () => {
+    const parsed = quizPackSchema.parse({
+      id: "p",
+      title: "Pack",
+      version: 1,
+      rounds: [
+        {
+          kind: "image_buzz",
+          id: "rimg",
+          title: "Série",
+          slides: [
+            {
+              id: "s1",
+              imageUrl: "games/guess_by_color/images/x.png",
+              prompt: "Devine",
+            },
+          ],
+        },
+      ],
+    });
+    const r0 = parsed.rounds[0];
+    if (!isImageBuzzRound(r0)) throw new Error("expected image_buzz");
+    expect(r0.slides[0]?.imageUrl).toBe("/games/guess_by_color/images/x.png");
   });
 
   test("rejects traversal in imageUrl", () => {

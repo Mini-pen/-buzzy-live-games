@@ -3,7 +3,10 @@ import {
   isAudioBlindRound,
   isFreeBuzzRound,
   isImageBuzzRound,
+  isProgressiveGuessRound,
+  isQuizRound,
   isVideoRound,
+  progressiveGuessDecode,
 } from "../games/pack.js";
 import { canonicalYoutubeEmbedIframeSrc } from "./youtubeEmbed.js";
 import { publicSnapshotForParty } from "./partyLogic.js";
@@ -170,6 +173,48 @@ function deriveGameBoard(
     return base;
   }
 
+  if (isProgressiveGuessRound(round)) {
+    const decoded = progressiveGuessDecode(round, qi);
+    if (decoded === null) return null;
+    const puzzleIdx = round.items.indexOf(decoded.item);
+    if (puzzleIdx < 0) return null;
+    const baseMeta = {
+      packTitle: pack.title,
+      roundIndex: ri,
+      roundTitle: round.title,
+      roundNumberHuman: ri + 1,
+      puzzleIndexHuman: puzzleIdx + 1,
+      puzzleCount: round.items.length,
+    };
+    if (decoded.clueIndex !== null) {
+      const clue = decoded.item.clues[decoded.clueIndex];
+      if (clue === undefined) return null;
+      const url = clue.imageUrl.trim();
+      if (url === "") return null;
+      const clueBase = {
+        kind: "progressive_guess" as const,
+        phase: "clue" as const,
+        ...baseMeta,
+        clueIndexHuman: decoded.clueIndex + 1,
+        clueCount: decoded.item.clues.length,
+        imageUrl: url,
+        awardPoints: clue.points,
+      };
+      const pr = decoded.item.playerPrompt?.trim();
+      return pr !== undefined && pr !== "" ? { ...clueBase, playerPrompt: pr } : clueBase;
+    }
+    const revImg = decoded.item.reveal.imageUrl.trim();
+    const ans = decoded.item.reveal.answer.trim();
+    return {
+      kind: "progressive_guess",
+      phase: "reveal",
+      ...baseMeta,
+      answer: ans,
+      revealImageUrl: revImg,
+    };
+  }
+
+  if (!isQuizRound(round)) return null;
   if (qi >= round.questions.length) return null;
   const question = round.questions[qi];
   const surface: PartyGameBoardQuiz = {

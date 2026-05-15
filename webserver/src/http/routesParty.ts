@@ -13,7 +13,10 @@ import type { Party } from "../domain/types.js";
 import { partySnapshotWithGame, quizPackFromLoadedId } from "../domain/partySnapshotPresenter.js";
 import type { QuizPack } from "../games/pack.js";
 import type { LoadedBuzzSoundCatalog } from "../games/buzzSoundCatalog.js";
-import { resolveBuzzSoundPublicUrl } from "../games/buzzSoundCatalog.js";
+import {
+  isBuzzerClipForPlayerChoice,
+  resolveBuzzSoundPublicUrl,
+} from "../games/buzzSoundCatalog.js";
 import { readBearer } from "./bearer.js";
 import { replyDomain } from "./replyDomain.js";
 import {
@@ -194,15 +197,23 @@ export async function registerPartyRoutes(
     })),
   }));
 
-  app.get("/api/sounds", async () => ({
-    defaultBuzzerKey: buzzCatalog.defaultBuzzerKey,
-    sounds: buzzCatalog.sounds.map((s) => ({
-      key: s.key,
-      label: s.label,
-      pool: s.pool,
-      url: resolveBuzzSoundPublicUrl(s),
-    })),
-  }));
+  app.get("/api/sounds", async () => {
+    const selectable = buzzCatalog.sounds.filter((s) => isBuzzerClipForPlayerChoice(s));
+    const defaultInList = selectable.some((s) => s.key === buzzCatalog.defaultBuzzerKey);
+    const defaultBuzzerKey = defaultInList
+      ? buzzCatalog.defaultBuzzerKey
+      : (selectable[0]?.key ?? buzzCatalog.defaultBuzzerKey);
+
+    return {
+      defaultBuzzerKey,
+      sounds: selectable.map((s) => ({
+        key: s.key,
+        label: s.label,
+        pool: s.pool,
+        url: resolveBuzzSoundPublicUrl(s),
+      })),
+    };
+  });
 
   app.get<{ Params: { joinCode: string } }>(
     "/api/parties/meta-by-code/:joinCode",
@@ -539,6 +550,22 @@ export async function registerPartyRoutes(
         if (err instanceof z.ZodError) {
           return reply.status(400).send({ error: "VALIDATION", issues: err.issues });
         }
+        return replyDomain(reply, err);
+      }
+    },
+  );
+
+  app.post<{ Params: { partyId: string } }>(
+    "/api/parties/:partyId/host/delete",
+    async (req, reply) => {
+      try {
+        const party = requireParty(store, req.params.partyId);
+        const token = readBearer(req.headers.authorization);
+        if (!store.verifyAdminToken(party, token))
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        store.adminDeleteParty(party);
+        return reply.status(204).send();
+      } catch (err) {
         return replyDomain(reply, err);
       }
     },

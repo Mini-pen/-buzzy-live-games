@@ -142,6 +142,26 @@ export interface PartyGameBoardImageBuzz {
   prompt?: string;
 }
 
+/** * Progressive clues (same mystery answer) then a reveal slide with poster + answer text. */
+export interface PartyGameBoardProgressiveGuess {
+  kind: "progressive_guess";
+  phase: "clue" | "reveal";
+  packTitle: string;
+  roundIndex: number;
+  roundTitle: string;
+  roundNumberHuman: number;
+  puzzleIndexHuman: number;
+  puzzleCount: number;
+  /** * Clue phase only : 1-based clue index among `clueCount`. */
+  clueIndexHuman?: number;
+  clueCount?: number;
+  imageUrl?: string;
+  awardPoints?: number;
+  playerPrompt?: string;
+  answer?: string;
+  revealImageUrl?: string;
+}
+
 /** * Blind test: players hear `audioUrl`; reveal fields exist only for host snapshots. */
 export interface PartyGameBoardAudioBlind {
   kind: "audio_blind";
@@ -178,6 +198,7 @@ export type PartyGameBoardSurface =
   | PartyGameBoardVideo
   | PartyGameBoardFreeBuzz
   | PartyGameBoardImageBuzz
+  | PartyGameBoardProgressiveGuess
   | PartyGameBoardAudioBlind
   | PartyGameBoardIframe
   | PartyGameBoardYoutube;
