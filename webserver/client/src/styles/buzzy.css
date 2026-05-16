@@ -664,6 +664,39 @@ html, body {
 }
 .bz-app .bz-choice--correct .bz-choice-letter { background: var(--bz-good); color: var(--bz-good-ink); }
 .bz-app .bz-choice-text { flex: 1; font-size: 15px; font-weight: 500; color: var(--bz-text); }
+
+/* Quiz : picks joueurs (mobile) ; surbrillance file buzz animateur via --host-pick-* */
+.bz-app .bz-board-choices.bz-board-choices--pickable .bz-choice-slot {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bz-app .bz-board-choices .bz-choice-slot .bz-choice {
+  width: 100%;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.bz-app .bz-choice--selected {
+  border-color: var(--bz-accent);
+  background: rgba(255, 204, 46, 0.1);
+}
+.bz-app .bz-choice--player-pick-good {
+  outline: 2px solid var(--bz-good);
+  outline-offset: 1px;
+}
+.bz-app .bz-choice--player-pick-bad {
+  outline: 2px solid var(--bz-bad);
+  outline-offset: 1px;
+}
+.bz-app .bz-choice--host-pick-good {
+  box-shadow: 0 0 0 2px rgba(57, 233, 145, 0.55);
+}
+.bz-app .bz-choice--host-pick-bad {
+  box-shadow: 0 0 0 2px rgba(255, 61, 90, 0.65);
+}
+
 .bz-app .bz-board-video {
   width: 100%;
   max-height: 480px;
@@ -1085,6 +1118,31 @@ html, body {
 }
 .bz-app .bz-host-queue-list li:first-child .bz-rank { color: var(--bz-accent); }
 .bz-app .bz-host-queue-list .bz-name { flex: 1; font-weight: 600; min-width: 80px; }
+.bz-app .bz-host-queue-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bz-app .bz-host-queue-name-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bz-app .bz-host-qcm-pick {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.bz-app .bz-host-qcm-pick--good { color: var(--bz-good); }
+.bz-app .bz-host-qcm-pick--bad { color: var(--bz-bad); }
+.bz-app .bz-host-qcm-pick-letter {
+  font-family: var(--bz-f-mono);
+  margin-right: 6px;
+}
+.bz-app .bz-host-qcm-pick-text { font-weight: 500; }
 .bz-app .bz-host-queue-actions {
   display: flex;
   flex-wrap: wrap;

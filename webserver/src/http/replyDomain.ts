@@ -42,6 +42,8 @@ export function replyDomain(reply: FastifyReply, err: unknown): FastifyReply {
     BAD_SOUND_POLICY: 400,
     AVATAR_CATALOG_EMPTY: 503,
     NOT_IN_BUZZ_QUEUE: 409,
+    QUIZ_CHOICE_REQUIRED: 400,
+    PLAYER_GONE: 410,
   };
 
   const status = map[code] ?? 400;

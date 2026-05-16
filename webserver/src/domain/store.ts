@@ -19,17 +19,27 @@ import {
   progressiveGuessDecode,
   progressiveGuessTotalFlatSteps,
 } from "../games/pack.js";
-import { parseAvatarKeyOrDefault, requireParsedAvatarKey } from "../avatars/catalog.js";
+import { resolveJoinAvatarKey, requireParsedAvatarKey } from "../avatars/catalog.js";
 import { randomJoinCode, randomSecretHex } from "./codes.js";
 import { evaluateJoin, normalizeTeamChoice, publicSnapshotForParty } from "./partyLogic.js";
 import type { ChatEntry, MancheCatalogItem, Party, PartyPublicSnapshot, Player } from "./types.js";
 
+function clearBuzzQueue(party: Party): void {
+  party.buzzOrder = [];
+  party.buzzQuizGuess.clear();
+}
 export interface CreatePartyOpts {
   maxPlayers: number | null;
   maxTeams: number | null;
   closedAfterStart: boolean;
   allowRename: boolean;
   allowTeamChange: boolean;
+}
+
+/** * Optional QCM context for `buzz`; when `choicesLen >= 1`, `choiceIndex` must be in range. */
+export interface QuizBuzzChoiceOpts {
+  choicesLen?: number;
+  choiceIndex?: number;
 }
 
 export type PartyNotifyMeta =
@@ -171,6 +181,7 @@ export class PartyStore {
       allowTeamChange: opts.allowTeamChange,
       players: new Map(),
       buzzOrder: [],
+      buzzQuizGuess: new Map(),
       buzzWindowOpen: false,
       chat: [],
       currentRoundIndex: null,
@@ -245,7 +256,7 @@ export class PartyStore {
     if (!joinRes.ok) {
       throw Object.assign(new Error(joinRes.code), { code: joinRes.code });
     }
-    const avatarKeyResolved = parseAvatarKeyOrDefault(avatarKeyRaw);
+    const avatarKeyResolved = resolveJoinAvatarKey(displayName, avatarKeyRaw);
     if (avatarKeyResolved === "") {
       throw Object.assign(new Error("AVATAR_CATALOG_EMPTY"), {
         code: "AVATAR_CATALOG_EMPTY",
@@ -389,7 +400,7 @@ export class PartyStore {
     this.broadcast(party);
   }
 
-  buzz(party: Party, playerId: string): void {
+  buzz(party: Party, playerId: string, quizChoice?: QuizBuzzChoiceOpts): void {
     if (!(party.state === "round_active" && party.buzzWindowOpen)) {
       throw Object.assign(new Error("NO_BUZZ"), { code: "NO_BUZZ" });
     }
@@ -398,6 +409,22 @@ export class PartyStore {
       throw Object.assign(new Error("PLAYER_GONE"), { code: "PLAYER_GONE" });
     const alreadyBuzzedFirst = party.buzzOrder.some((pid) => pid === playerId);
     if (!alreadyBuzzedFirst) {
+      const len = quizChoice?.choicesLen;
+      if (typeof len === "number" && len >= 1) {
+        const ix = quizChoice?.choiceIndex;
+        if (
+          typeof ix !== "number" ||
+          !Number.isInteger(ix) ||
+          ix < 0 ||
+          ix >= len
+        ) {
+          throw Object.assign(
+            new Error("Choix de réponse requis pour buzzer sur ce QCM."),
+            { code: "QUIZ_CHOICE_REQUIRED" },
+          );
+        }
+        party.buzzQuizGuess.set(playerId, ix);
+      }
       party.buzzOrder.push(playerId);
       this.touch(party);
       this.broadcast(party);
@@ -406,7 +433,7 @@ export class PartyStore {
   }
 
   resetBuzzBoard(party: Party): void {
-    party.buzzOrder = [];
+    clearBuzzQueue(party);
     this.touch(party);
     this.broadcast(party);
   }
@@ -417,7 +444,7 @@ export class PartyStore {
     }
     party.buzzWindowOpen = open;
     if (!open) {
-      party.buzzOrder = [];
+      clearBuzzQueue(party);
     }
     this.touch(party);
     this.broadcast(party);
@@ -512,7 +539,7 @@ export class PartyStore {
       party.currentQuestionIndex = null;
       if (party.state === "round_active") party.state = "lobby";
       party.buzzWindowOpen = false;
-      party.buzzOrder = [];
+      clearBuzzQueue(party);
     }
     this.touch(party);
     this.broadcast(party);
@@ -560,7 +587,7 @@ export class PartyStore {
     party.state = "round_active";
     party.hasStartedRound = true;
     party.buzzWindowOpen = false;
-    party.buzzOrder = [];
+    clearBuzzQueue(party);
     this.touch(party);
     this.broadcast(party);
   }
@@ -569,7 +596,7 @@ export class PartyStore {
     this.syncActiveQuizProgressIntoScriptItem(party);
     party.state = "lobby";
     party.buzzWindowOpen = false;
-    party.buzzOrder = [];
+    clearBuzzQueue(party);
     this.touch(party);
     this.broadcast(party);
   }
@@ -587,7 +614,7 @@ export class PartyStore {
     if (isVideoRound(round)) {
       party.videoReplaySerial += 1;
       party.buzzWindowOpen = false;
-      party.buzzOrder = [];
+      clearBuzzQueue(party);
       this.syncActiveQuizProgressIntoScriptItem(party);
       this.touch(party);
       this.broadcast(party);
@@ -597,7 +624,7 @@ export class PartyStore {
       const qix = party.currentQuestionIndex ?? 0;
       party.currentQuestionIndex = qix + 1;
       party.buzzWindowOpen = false;
-      party.buzzOrder = [];
+      clearBuzzQueue(party);
       this.syncActiveQuizProgressIntoScriptItem(party);
       this.touch(party);
       this.broadcast(party);
@@ -610,7 +637,7 @@ export class PartyStore {
         party.currentQuestionIndex = nextIx;
         party.videoReplaySerial += 1;
         party.buzzWindowOpen = false;
-        party.buzzOrder = [];
+        clearBuzzQueue(party);
         this.syncActiveQuizProgressIntoScriptItem(party);
         this.touch(party);
         this.broadcast(party);
@@ -628,7 +655,7 @@ export class PartyStore {
         party.currentQuestionIndex = nextIx;
         party.videoReplaySerial += 1;
         party.buzzWindowOpen = false;
-        party.buzzOrder = [];
+        clearBuzzQueue(party);
         this.syncActiveQuizProgressIntoScriptItem(party);
         this.touch(party);
         this.broadcast(party);
@@ -647,7 +674,7 @@ export class PartyStore {
         party.currentQuestionIndex = nextIx;
         party.videoReplaySerial += 1;
         party.buzzWindowOpen = false;
-        party.buzzOrder = [];
+        clearBuzzQueue(party);
         this.syncActiveQuizProgressIntoScriptItem(party);
         this.touch(party);
         this.broadcast(party);
@@ -669,7 +696,7 @@ export class PartyStore {
     if (nextQ < round.questions.length) {
       party.currentQuestionIndex = nextQ;
       party.buzzWindowOpen = false;
-      party.buzzOrder = [];
+      clearBuzzQueue(party);
       this.syncActiveQuizProgressIntoScriptItem(party);
       this.touch(party);
       this.broadcast(party);
@@ -702,7 +729,7 @@ export class PartyStore {
     }
     party.videoReplaySerial += 1;
     party.buzzWindowOpen = false;
-    party.buzzOrder = [];
+    clearBuzzQueue(party);
     this.syncActiveQuizProgressIntoScriptItem(party);
     this.touch(party);
     this.broadcast(party);
@@ -778,6 +805,7 @@ export class PartyStore {
       if (player) player.score = Math.max(0, player.score + pts);
     }
     party.buzzOrder.splice(ix, 1);
+    party.buzzQuizGuess.delete(playerId);
     this.syncActiveQuizProgressIntoScriptItem(party);
     this.touch(party);
     const meta: PartyNotifyMeta | undefined =

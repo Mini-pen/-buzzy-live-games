@@ -127,6 +127,7 @@ function partyStub(over: Partial<Party>): Party {
     allowTeamChange: true,
     players: new Map(),
     buzzOrder: [],
+    buzzQuizGuess: new Map(),
     buzzWindowOpen: false,
     chat: [],
     currentRoundIndex: null,
@@ -189,6 +190,43 @@ describe("partySnapshotWithGame", () => {
     expect(playSnap.gameBoard?.kind).toBe("quiz");
     if (playSnap.gameBoard?.kind !== "quiz") throw new Error("expected quiz");
     expect(playSnap.gameBoard.correctChoiceIndex).toBeUndefined();
+  });
+
+  test("host snapshot lists buzz quiz picks for the queue", () => {
+    const party = partyStub({
+      state: "round_active",
+      currentRoundIndex: 0,
+      currentQuestionIndex: 0,
+      loadedPackId: "demo-quiz-v1",
+      hasStartedRound: true,
+      mancheScript: [quizMancheOverPack("example")],
+      activeMancheId: "mid-quiz",
+      buzzWindowOpen: true,
+      buzzOrder: ["player-a", "player-b"],
+      buzzQuizGuess: new Map([
+        ["player-a", 1],
+        ["player-b", 0],
+      ]),
+    });
+    const hostSnap = partySnapshotWithGame(party, packs, "host");
+    expect(hostSnap.buzzQuizQueueDetail).toHaveLength(2);
+    expect(hostSnap.buzzQuizQueueDetail?.[0]).toMatchObject({
+      playerId: "player-a",
+      choiceIndex: 1,
+      letter: "B",
+      choiceLabel: "b",
+      correct: true,
+    });
+    expect(hostSnap.buzzQuizQueueDetail?.[1]).toMatchObject({
+      playerId: "player-b",
+      choiceIndex: 0,
+      letter: "A",
+      choiceLabel: "a",
+      correct: false,
+    });
+
+    const playSnap = partySnapshotWithGame(party, packs, "player");
+    expect(playSnap.buzzQuizQueueDetail).toBeUndefined();
   });
 
   test("video round exposes replay serial", () => {

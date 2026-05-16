@@ -166,6 +166,13 @@ interface PartySnapshot {
     allowedGoodKeys: string[];
     allowedBadKeys: string[];
   };
+  buzzQuizQueueDetail?: Array<{
+    playerId: string;
+    choiceIndex: number;
+    letter: string;
+    choiceLabel: string;
+    correct: boolean;
+  }>;
 }
 
 /** * Catalogue GET `/api/sounds` — player buzzer picker (fichiers `buzzers/` seulement). */
@@ -1127,8 +1134,25 @@ function GameBoardPanel(props: {
   blindHostPresenter?: boolean;
   /** * Joueurs / diffusion : rejouer / play sur l’appareil seulement si l’animateur l’active. */
   allowBlindPlaybackOnClients?: boolean;
+  /** * Animateur quiz : surbrillance des options choisies dans la file buzz (un « bad » domine sur une même ligne). */
+  hostQuizBuzzHighlights?: Array<{ choiceIndex: number; tone: "good" | "bad" }>;
+  /** * Joueur QCM : clic pour choisir avant buzz ; après buzz, verrou + correct / incorrect local. */
+  quizPlayerPickUi?: {
+    selectedIndex: number | null;
+    locked?: { choiceIndex: number; correct: boolean } | null;
+    onPick: (choiceIndex: number) => void;
+    canPick: boolean;
+  };
 }): JSX.Element | null {
-  const { board, partyState, revealCorrect, blindHostPresenter, allowBlindPlaybackOnClients } = props;
+  const {
+    board,
+    partyState,
+    revealCorrect,
+    blindHostPresenter,
+    allowBlindPlaybackOnClients,
+    hostQuizBuzzHighlights,
+    quizPlayerPickUi,
+  } = props;
 
   const blindClientsMayPlay =
     blindHostPresenter === true || (allowBlindPlaybackOnClients ?? false) === true;
@@ -1324,6 +1348,13 @@ function GameBoardPanel(props: {
       ci < board.choices.length
         ? board.choices[ci]
         : null;
+
+    const hostToneByIndex = new Map<number, "good" | "bad">();
+    for (const h of hostQuizBuzzHighlights ?? []) {
+      hostToneByIndex.set(h.choiceIndex, h.tone);
+    }
+    const qp = quizPlayerPickUi;
+
     return (
       <section className="bz-board">
         <div className="bz-board-meta">
@@ -1340,20 +1371,52 @@ function GameBoardPanel(props: {
           <QuizIllustration imageUrl={board.imageUrl} variant="panel" />
         ) : null}
         <h2 className="bz-board-prompt">{board.prompt}</h2>
-        <ol className="bz-board-choices">
+        <ol className={`bz-board-choices${qp !== undefined ? " bz-board-choices--pickable" : ""}`}>
           {board.choices.map((c, i) => {
-            const isCorrect =
+            const isCorrectReveal =
               revealCorrect && typeof ci === "number" && ci === i;
+            const buzzTone =
+              revealCorrect === true ? hostToneByIndex.get(i) : undefined;
+
+            let rowClass = `bz-choice ${isCorrectReveal ? "bz-choice--correct" : ""}`;
+            if (revealCorrect && buzzTone === "good") rowClass += " bz-choice--host-pick-good";
+            if (revealCorrect && buzzTone === "bad") rowClass += " bz-choice--host-pick-bad";
+
+            const lockedRow = qp?.locked ?? null;
+            if (qp !== undefined && lockedRow !== null && lockedRow.choiceIndex === i) {
+              rowClass += lockedRow.correct ? " bz-choice--player-pick-good" : " bz-choice--player-pick-bad";
+            } else if (qp !== undefined && lockedRow === null && qp.canPick && qp.selectedIndex === i) {
+              rowClass += " bz-choice--selected";
+            }
+
+            const key = `${board.roundIndex}-${board.questionIndexInRound}-${i}`;
+
+            if (qp !== undefined && qp.canPick) {
+              return (
+                <li key={key} className="bz-choice-slot">
+                  <button
+                    type="button"
+                    className={rowClass}
+                    onClick={() => qp.onPick(i)}
+                  >
+                    <span className="bz-choice-letter">{String.fromCharCode(65 + i)}</span>
+                    <span className="bz-choice-text">{c}</span>
+                    {isCorrectReveal ? (
+                      <span className="bz-pill bz-good">
+                        <span className="bz-dot" />
+                        bonne réponse
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            }
+
             return (
-              <li
-                key={`${board.roundIndex}-${board.questionIndexInRound}-${i}`}
-                className={`bz-choice ${isCorrect ? "bz-choice--correct" : ""}`}
-              >
-                <span className="bz-choice-letter">
-                  {String.fromCharCode(65 + i)}
-                </span>
+              <li key={key} className={rowClass}>
+                <span className="bz-choice-letter">{String.fromCharCode(65 + i)}</span>
                 <span className="bz-choice-text">{c}</span>
-                {isCorrect ? (
+                {isCorrectReveal ? (
                   <span className="bz-pill bz-good">
                     <span className="bz-dot" />
                     bonne réponse
@@ -1587,6 +1650,11 @@ function Play(): JSX.Element {
   const [snap, setSnap] = useState<PartySnapshot | null>(null);
   const [chat, setChat] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [quizSelected, setQuizSelected] = useState<number | null>(null);
+  const [quizBuzzLocked, setQuizBuzzLocked] = useState<{
+    choiceIndex: number;
+    correct: boolean;
+  } | null>(null);
   const [lobbySoundsLib, setLobbySoundsLib] = useState<{
     defaultBuzzerKey: string;
     sounds: CatalogSoundEntry[];
@@ -1632,19 +1700,56 @@ function Play(): JSX.Element {
     rememberPlayerParty(pid, snap.joinCode);
   }, [pid, jwt, snap]);
 
+  const quizSurfaceKey =
+    snap?.gameBoard?.kind === "quiz"
+      ? `${snap.gameBoard.roundIndex}-${snap.gameBoard.questionIndexInRound}`
+      : "";
+
+  useEffect(() => {
+    setQuizSelected(null);
+    setQuizBuzzLocked(null);
+  }, [quizSurfaceKey]);
+
+  useEffect(() => {
+    if (snap?.gameBoard?.kind !== "quiz") return;
+    if (snap.buzzWindowOpen !== false) return;
+    setQuizSelected(null);
+    setQuizBuzzLocked(null);
+  }, [snap?.gameBoard?.kind, snap?.buzzWindowOpen]);
+
   async function buzz(): Promise<void> {
     if (!pid || jwt === null || jwt === "") return;
+    if (
+      snap?.gameBoard?.kind === "quiz" &&
+      typeof quizSelected !== "number"
+    ) {
+      setErr("Choisis une réponse avant de buzzer.");
+      return;
+    }
     setErr(null);
     try {
       const res = await fetchJson<{
         snapshot: PartySnapshot;
         buzzToneUrl?: string;
+        quizPickFeedback?: { choiceIndex: number; correct: boolean };
       }>(`/api/parties/${pid}/me/buzz`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${jwt}` },
-        body: JSON.stringify({}),
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          "Content-Type": "application/json",
+        },
+        body:
+          snap?.gameBoard?.kind === "quiz"
+            ? JSON.stringify({ quizChoiceIndex: quizSelected })
+            : JSON.stringify({}),
       });
       setSnap(res.snapshot);
+      if (typeof res.quizPickFeedback?.choiceIndex === "number") {
+        setQuizBuzzLocked({
+          choiceIndex: res.quizPickFeedback.choiceIndex,
+          correct: res.quizPickFeedback.correct === true,
+        });
+      }
       if (
         typeof res.buzzToneUrl === "string" &&
         res.buzzToneUrl.length > 0 &&
@@ -1703,6 +1808,7 @@ function Play(): JSX.Element {
   const rowMe = snap.players.find((p) => p.id === myId);
   const canChatRoom = snap.state === "lobby" || snap.state === "between_rounds";
   const canBuzz = snap.state === "round_active" && snap.buzzWindowOpen;
+  const queuedBuzz = typeof myId === "string" && snap.buzzOrder.some((bid) => bid === myId);
 
   async function updateMyBuzzSound(next: string): Promise<void> {
     if (!pid || jwt === null || jwt === "") return;
@@ -1775,6 +1881,18 @@ function Play(): JSX.Element {
         partyState={snap.state}
         revealCorrect={false}
         allowBlindPlaybackOnClients={snap.allowPlayerAudioControl === true}
+        quizPlayerPickUi={
+          snap.state === "round_active" && snap.gameBoard?.kind === "quiz"
+            ? {
+                selectedIndex: quizSelected,
+                locked: quizBuzzLocked,
+                onPick: (ix) => {
+                  setQuizSelected(ix);
+                },
+                canPick: canBuzz && !queuedBuzz,
+              }
+            : undefined
+        }
       />
 
       <section className="bz-buzz-hero">
@@ -1782,6 +1900,7 @@ function Play(): JSX.Element {
           <button
             type="button"
             onClick={() => void buzz()}
+            disabled={snap.gameBoard?.kind === "quiz" && quizSelected === null}
             className="bz-buzz-btn bz-buzz-armed"
             aria-label="Buzz"
           >
@@ -2269,6 +2388,20 @@ function Admin(): JSX.Element {
     );
   }, [snap]);
 
+  const hostQuizBuzzHighlights = useMemo(() => {
+    if (snap === null) return [];
+    const rows = snap.buzzQuizQueueDetail;
+    if (!rows || rows.length === 0) return [];
+    const m = new Map<number, "good" | "bad">();
+    for (const row of rows) {
+      if (row.choiceIndex < 0) continue;
+      const t = row.correct ? ("good" as const) : ("bad" as const);
+      const prev = m.get(row.choiceIndex);
+      m.set(row.choiceIndex, prev === "bad" || t === "bad" ? "bad" : "good");
+    }
+    return [...m.entries()].map(([choiceIndex, tone]) => ({ choiceIndex, tone }));
+  }, [snap]);
+
   const onDeltaScoreApply = useCallback(
     async (playerId: string): Promise<void> => {
       setErr(null);
@@ -2450,6 +2583,7 @@ function Admin(): JSX.Element {
             partyState={snap.state}
             revealCorrect
             blindHostPresenter={snap.gameBoard?.kind === "audio_blind"}
+            hostQuizBuzzHighlights={hostQuizBuzzHighlights}
           />
 
           <section className="bz-host-pack">
@@ -2623,15 +2757,28 @@ function Admin(): JSX.Element {
               <ol className="bz-host-queue-list">
                 {snap.buzzOrder.map((idBuzz2, ix) => {
                   const pw = snap.players.find((zz) => zz.id === idBuzz2);
+                  const qRow = snap.buzzQuizQueueDetail?.[ix];
                   return (
                     <li key={`${idBuzz2}-${ix}`} className="bz-host-queue-item">
                       <span className="bz-rank">{ix + 1}</span>
-                      <span className="bz-name">
-                        {pw?.displayName ?? idBuzz2}
-                      </span>
-                      {pw?.teamId != null ? (
-                        <span className="bz-host-team">éq. {pw.teamId}</span>
-                      ) : null}
+                      <div className="bz-host-queue-main">
+                        <div className="bz-host-queue-name-line">
+                          <span className="bz-name">{pw?.displayName ?? idBuzz2}</span>
+                          {pw?.teamId != null ? (
+                            <span className="bz-host-team">éq. {pw.teamId}</span>
+                          ) : null}
+                        </div>
+                        {qRow !== undefined && snap.gameBoard?.kind === "quiz" ? (
+                          <div
+                            className={`bz-host-qcm-pick ${
+                              qRow.correct ? "bz-host-qcm-pick--good" : "bz-host-qcm-pick--bad"
+                            }`}
+                          >
+                            <span className="bz-host-qcm-pick-letter">{qRow.letter}.</span>
+                            <span className="bz-host-qcm-pick-text">{qRow.choiceLabel}</span>
+                          </div>
+                        ) : null}
+                      </div>
                       <span className="bz-host-queue-actions">
                         <button
                           type="button"

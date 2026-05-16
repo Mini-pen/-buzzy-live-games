@@ -8,10 +8,11 @@ import type {
 import { z } from "zod";
 
 import type { AppConfig } from "../config.js";
-import type { PartyStore } from "../domain/store.js";
+import type { PartyStore, QuizBuzzChoiceOpts } from "../domain/store.js";
 import type { Party } from "../domain/types.js";
 import { partySnapshotWithGame, quizPackFromLoadedId } from "../domain/partySnapshotPresenter.js";
 import type { QuizPack } from "../games/pack.js";
+import { isQuizRound } from "../games/pack.js";
 import type { LoadedBuzzSoundCatalog } from "../games/buzzSoundCatalog.js";
 import {
   isBuzzerClipForPlayerChoice,
@@ -86,6 +87,10 @@ const buzzWindowSchema = z.object({
   open: z.boolean(),
 });
 
+const buzzBodySchema = z.object({
+  quizChoiceIndex: z.number().int().min(0).max(255).optional(),
+});
+
 const buzzResolveSchema = z.object({
   playerId: z.string().uuid(),
   verdict: z.enum(["good", "bad"]),
@@ -148,6 +153,56 @@ function requireParty(store: PartyStore, id: string) {
     throw err;
   }
   return party;
+}
+
+function quizBuzzOptsForRequest(
+  party: Party,
+  packs: Map<string, QuizPack>,
+  quizChoiceIndex: number | undefined,
+): QuizBuzzChoiceOpts | undefined {
+  const loaded = quizPackFromLoadedId(packs, party.loadedPackId);
+  if (!loaded || party.state !== "round_active" || !party.buzzWindowOpen)
+    return undefined;
+  const ri = party.currentRoundIndex;
+  const qi = party.currentQuestionIndex;
+  if (
+    ri === null ||
+    qi === null ||
+    ri < 0 ||
+    qi < 0 ||
+    ri >= loaded.rounds.length
+  )
+    return undefined;
+  const round = loaded.rounds[ri];
+  if (!isQuizRound(round)) return undefined;
+  const question = round.questions[qi];
+  if (!question || question.choices.length < 1) return undefined;
+  return {
+    choicesLen: question.choices.length,
+    choiceIndex: quizChoiceIndex,
+  };
+}
+
+function quizPickFeedbackAfterBuzz(
+  packs: Map<string, QuizPack>,
+  party: Party,
+  quizBuzz: QuizBuzzChoiceOpts | undefined,
+  newlyBuzzed: boolean,
+): { choiceIndex: number; correct: boolean } | undefined {
+  if (!newlyBuzzed || quizBuzz?.choicesLen === undefined) return undefined;
+  const ix = quizBuzz.choiceIndex;
+  if (typeof ix !== "number") return undefined;
+  const loaded = quizPackFromLoadedId(packs, party.loadedPackId);
+  const ri = party.currentRoundIndex;
+  const qi = party.currentQuestionIndex;
+  if (!loaded || ri === null || qi === null || ri < 0 || qi < 0) return undefined;
+  const round = loaded.rounds[ri];
+  if (!isQuizRound(round)) return undefined;
+  const q = round.questions[qi];
+  if (!q) return undefined;
+  const ci = q.correctIndex;
+  if (typeof ci !== "number" || ci < 0 || ci >= q.choices.length) return undefined;
+  return { choiceIndex: ix, correct: ix === ci };
 }
 
 export async function registerPartyRoutes(
@@ -396,9 +451,18 @@ export async function registerPartyRoutes(
         }
         if (partyId !== req.params.partyId)
           return reply.status(403).send({ error: "FORBIDDEN" });
+        const parsedBody = buzzBodySchema.safeParse(req.body ?? {});
+        if (!parsedBody.success) {
+          return reply.status(400).send({ error: "VALIDATION", issues: parsedBody.error.issues });
+        }
         const party = requireParty(store, partyId);
         const alreadyInQueue = party.buzzOrder.some((idBuzz) => idBuzz === playerId);
-        store.buzz(party, playerId);
+        const quizBuzz = quizBuzzOptsForRequest(
+          party,
+          packs,
+          parsedBody.data.quizChoiceIndex,
+        );
+        store.buzz(party, playerId, quizBuzz);
         const snapshot = snapPlayer(party);
         let buzzToneUrl: string | undefined;
         if (!alreadyInQueue && party.buzzSound.playPlayerBuzzTone) {
@@ -406,7 +470,12 @@ export async function registerPartyRoutes(
           const sfx = plNow ? buzzCatalog.byKey.get(plNow.buzzSoundKey) : undefined;
           if (sfx) buzzToneUrl = resolveBuzzSoundPublicUrl(sfx) || undefined;
         }
-        return { snapshot, buzzToneUrl };
+        const quizPickFeedback = quizPickFeedbackAfterBuzz(packs, party, quizBuzz, !alreadyInQueue);
+        return {
+          snapshot,
+          buzzToneUrl,
+          ...(quizPickFeedback !== undefined ? { quizPickFeedback } : {}),
+        };
       } catch (err) {
         return replyDomain(reply, err);
       }

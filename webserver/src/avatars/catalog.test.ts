@@ -1,10 +1,14 @@
+import path from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import {
   avatarLabelFromFilenameStem,
   avatarPublicRelativePath,
   getAvatarCatalog,
+  inferAvatarKeyFromDisplayName,
   refreshAvatarCatalog,
+  resolveJoinAvatarKey,
   tryParseAvatarKey,
 } from "./catalog.js";
 
@@ -35,13 +39,26 @@ describe("disk-backed catalog (repo avatars folder)", () => {
     expect(first.label.length).toBeGreaterThan(0);
   });
 
-  test("matches exact relative key when unique stem", () => {
+  test("matches exact nested key path", () => {
     refreshAvatarCatalog();
     const c = getAvatarCatalog();
-    const hit = c.find((e) => e.key.includes("avatar_base"));
+    const hit = c.find((e) => e.key.startsWith("base/"));
     if (!hit) {
-      throw new Error("Expected nested avatar_base*.png under avatars/ for this test");
+      throw new Error("Expected at least one file under avatars/base/ for this test");
     }
     expect(tryParseAvatarKey(hit.key)).toBe(hit.key);
+  });
+
+  test("infer resolves pseudo from image stem under base/", () => {
+    refreshAvatarCatalog();
+    const c = getAvatarCatalog();
+    const hit = c.find((e) => e.key.startsWith("base/"));
+    if (!hit) {
+      throw new Error("Expected at least one file under avatars/base/ for this test");
+    }
+    const stem = path.parse(path.basename(hit.key.replace(/\\/gu, "/"))).name;
+    const spaced = stem.replace(/_/gu, " ");
+    expect(inferAvatarKeyFromDisplayName(spaced)).toBe(hit.key);
+    expect(resolveJoinAvatarKey(spaced, undefined)).toBe(hit.key);
   });
 });

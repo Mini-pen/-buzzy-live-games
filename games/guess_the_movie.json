@@ -1,7 +1,7 @@
 {
   "id": "guess-the-movie-v1",
   "title": "Devine le film (indices visuels)",
-  "version": 1,
+  "version": 2,
   "rounds": [
     {
       "kind": "progressive_guess",
@@ -58,6 +58,45 @@
           "reveal": {
             "answer": "Film 4 — modifie cette ligne dans le JSON",
             "imageUrl": "games/guess_the_movie/film04_rep.png"
+          }
+        },
+        {
+          "id": "film05",
+          "playerPrompt": "Même film pour les trois indices — buzz quand tu crois tenir le titre.",
+          "clues": [
+            { "imageUrl": "games/guess_the_movie/film05_A.png", "points": 5 },
+            { "imageUrl": "games/guess_the_movie/film05_B.png", "points": 3 },
+            { "imageUrl": "games/guess_the_movie/film05_C.png", "points": 1 }
+          ],
+          "reveal": {
+            "answer": "Film 5 — modifie cette ligne dans le JSON",
+            "imageUrl": "games/guess_the_movie/film05_rep.png"
+          }
+        },
+        {
+          "id": "film06",
+          "playerPrompt": "Même film pour les trois indices — buzz quand tu crois tenir le titre.",
+          "clues": [
+            { "imageUrl": "games/guess_the_movie/film06_A.png", "points": 5 },
+            { "imageUrl": "games/guess_the_movie/film06_B.png", "points": 3 },
+            { "imageUrl": "games/guess_the_movie/film06_C.png", "points": 1 }
+          ],
+          "reveal": {
+            "answer": "Film 6 — modifie cette ligne dans le JSON",
+            "imageUrl": "games/guess_the_movie/film06_rep.png"
+          }
+        },
+        {
+          "id": "film07",
+          "playerPrompt": "Même film pour les trois indices — buzz quand tu crois tenir le titre.",
+          "clues": [
+            { "imageUrl": "games/guess_the_movie/film07_A.png", "points": 5 },
+            { "imageUrl": "games/guess_the_movie/film07_B.png", "points": 3 },
+            { "imageUrl": "games/guess_the_movie/film07_C.png", "points": 1 }
+          ],
+          "reveal": {
+            "answer": "Film 7 — modifie cette ligne dans le JSON",
+            "imageUrl": "games/guess_the_movie/film07_rep.png"
           }
         }
       ]
