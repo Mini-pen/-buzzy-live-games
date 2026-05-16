@@ -18,6 +18,34 @@ import type {
   PartyPublicSnapshot,
 } from "./types.js";
 
+function deriveBuzzQuizQueueDetail(
+  party: Party,
+  board: PartyGameBoardSurface | null,
+): PartyPublicSnapshot["buzzQuizQueueDetail"] {
+  if (board === null || board.kind !== "quiz") return undefined;
+  const ci = board.correctChoiceIndex;
+  if (typeof ci !== "number" || ci < 0 || ci >= board.choices.length) return undefined;
+  return party.buzzOrder.map((playerId) => {
+    const rawIx = party.buzzQuizGuess.get(playerId);
+    const choiceIndex =
+      typeof rawIx === "number" &&
+      rawIx >= 0 &&
+      rawIx < board.choices.length
+        ? rawIx
+        : -1;
+    const letter = choiceIndex >= 0 ? String.fromCharCode(65 + choiceIndex) : "?";
+    const choiceLabel = choiceIndex >= 0 ? board.choices[choiceIndex]! : "—";
+    const correct = choiceIndex === ci;
+    return {
+      playerId,
+      choiceIndex,
+      letter,
+      choiceLabel,
+      correct,
+    };
+  });
+}
+
 /** * Finds a scanned pack whose `QuizPack.id` matches `party.loadedPackId`. */
 export function quizPackFromLoadedId(
   packs: Map<string, QuizPack>,
@@ -243,6 +271,7 @@ export function partySnapshotWithGame(
 ): PartyPublicSnapshot {
   const pack = quizPackFromLoadedId(packs, party.loadedPackId);
   const base = publicSnapshotForParty(party);
+  const gameBoard = deriveGameBoard(party, pack, audience);
   const hostSound =
     audience === "host"
       ? {
@@ -250,11 +279,15 @@ export function partySnapshotWithGame(
             allowedGoodKeys: [...party.buzzSound.allowedGoodKeys],
             allowedBadKeys: [...party.buzzSound.allowedBadKeys],
           },
+          autoOpenBuzzOnCueAdvance: party.autoOpenBuzzOnCueAdvance === true,
         }
       : {};
+  const buzzQuizQueueDetail =
+    audience === "host" ? deriveBuzzQuizQueueDetail(party, gameBoard) : undefined;
   return {
     ...base,
     ...hostSound,
-    gameBoard: deriveGameBoard(party, pack, audience),
+    gameBoard,
+    ...(buzzQuizQueueDetail !== undefined ? { buzzQuizQueueDetail } : {}),
   };
 }

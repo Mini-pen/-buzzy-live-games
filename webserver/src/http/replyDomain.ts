@@ -35,6 +35,9 @@ export function replyDomain(reply: FastifyReply, err: unknown): FastifyReply {
     ROUND_EXHAUSTED: 409,
     BAD_MOVE: 400,
     BAD_YOUTUBE_URL: 400,
+    BAD_VIDEO_URL: 400,
+    BAD_VIDEO_EXT: 400,
+    HOSTED_VIDEO_NOT_FOUND: 404,
     BAD_AVATAR: 400,
     MEDIA_REPLAY_NOT_APPLICABLE: 400,
     PLAYER_AUDIO_FLAG_NOT_APPLICABLE: 400,
@@ -42,6 +45,8 @@ export function replyDomain(reply: FastifyReply, err: unknown): FastifyReply {
     BAD_SOUND_POLICY: 400,
     AVATAR_CATALOG_EMPTY: 503,
     NOT_IN_BUZZ_QUEUE: 409,
+    QUIZ_CHOICE_REQUIRED: 400,
+    PLAYER_GONE: 410,
   };
 
   const status = map[code] ?? 400;

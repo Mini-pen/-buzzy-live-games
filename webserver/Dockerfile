@@ -21,6 +21,9 @@ WORKDIR /app/webserver
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV GAMES_DIR=/app/games
+# * Host faces from repo `avatars/` (not the SPA `public/avatars` fallback).
+COPY avatars /app/avatars-repo
+ENV AVATARS_DIR=/app/avatars-repo
 COPY webserver/package.json ./
 RUN npm install --omit=dev && npm cache clean --force
 COPY --from=build /app/webserver/dist ./dist

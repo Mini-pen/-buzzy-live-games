@@ -29,14 +29,16 @@ function webserverPkgRoot(): string {
   return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 }
 
+/** * Repository `avatars/` (sibling of `webserver/`) wins over SPA-bundled `public/avatars` copies. */
 function candidateAvatarRoots(): string[] {
   const out: string[] = [];
   const fromEnv = process.env.AVATARS_DIR?.trim();
   if (typeof fromEnv === "string" && fromEnv !== "") out.push(path.resolve(fromEnv));
   const pkg = webserverPkgRoot();
   out.push(path.resolve(pkg, "..", "avatars"));
-  out.push(path.join(pkg, "client", "public", "avatars"));
+  /** * Fallback: Vite-built tree (often duplicates `client/public`) only if mono-repo avatars/ is absent. */
   out.push(path.join(pkg, "dist", "client", "avatars"));
+  out.push(path.join(pkg, "client", "public", "avatars"));
   return out;
 }
 
@@ -46,6 +48,14 @@ function isDir(p: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** * `base/` and `Cousinades_2026/` get earlier default pick order and stem-match priority. */
+function folderPriority(relKeyUnix: string): number {
+  const n = relKeyUnix.toLowerCase();
+  if (n.startsWith("base/")) return 0;
+  if (n.startsWith("cousinades_2026/")) return 1;
+  return 2;
 }
 
 function collectImageFilesRecursive(absRoot: string, relPrefix: string, acc: string[]): void {
@@ -75,7 +85,11 @@ function buildCatalogForRoot(rootAbs: string): CatalogCache | null {
   if (!isDir(normalizedRoot)) return null;
   const relKeys: string[] = [];
   collectImageFilesRecursive(normalizedRoot, "", relKeys);
-  relKeys.sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+  relKeys.sort((a, b) => {
+    const d = folderPriority(a) - folderPriority(b);
+    if (d !== 0) return d;
+    return a.localeCompare(b, "en", { sensitivity: "base" });
+  });
   const lowerToCanonicalKey = new Map<string, string>();
   const entriesUncached: AvatarCatalogEntry[] = [];
   const seenLower = new Set<string>();
@@ -104,9 +118,47 @@ export function resolveAvatarsServingRoot(): string | null {
   return null;
 }
 
-/** * Prefer `AVATARS_DIR`, then repo root `avatars/`, then legacy Vite public folders. */
+/** * Prefer `AVATARS_DIR`, then mono-repo `avatars/`, last resort built `dist/client` / `public` copies. */
 export function resolveAvatarsDir(): string | null {
   return resolveAvatarsServingRoot();
+}
+
+/** * Collapses separators for comparing a player display name with an image stem. */
+export function avatarStemMatchForm(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[\s._-]+/gu, "");
+}
+
+/**
+ * When the player omits `avatarKey` (or picks an unknown one), selects a catalogue entry whose
+ * file stem loosely matches `displayName` (case / spaces / separators ignored). Prefers keys under `base/` then
+ * `Cousinades_2026/` when multiple files share the same stem.
+ */
+export function inferAvatarKeyFromDisplayName(displayNameRaw: string): string | null {
+  const slug = avatarStemMatchForm(displayNameRaw);
+  if (slug === "") return null;
+  const { entries } = loadCatalog();
+  const hits: AvatarCatalogEntry[] = [];
+  for (const entry of entries) {
+    const base = path.basename(entry.key.replace(/\\/gu, "/"));
+    const stemForm = avatarStemMatchForm(path.parse(base).name);
+    if (stemForm === slug) hits.push(entry);
+  }
+  if (hits.length === 0) return null;
+  hits.sort((a, b) => {
+    const pd = folderPriority(a.key.replace(/\\/gu, "/")) - folderPriority(b.key.replace(/\\/gu, "/"));
+    if (pd !== 0) return pd;
+    return a.key.localeCompare(b.key, "en", { sensitivity: "base" });
+  });
+  return hits[0]!.key;
+}
+
+/** * Parses an explicit catalogue key ; otherwise derives from pseudo ; lastly default. */
+export function resolveJoinAvatarKey(displayName: string, avatarKeyRaw: unknown | undefined): string {
+  const d = getDefaultAvatarKey();
+  if (d === "") return "";
+  let k = tryParseAvatarKey(avatarKeyRaw);
+  if (k === null) k = inferAvatarKeyFromDisplayName(displayName.trim());
+  return k ?? d;
 }
 
 /** * Readable label from optional filename stem. */

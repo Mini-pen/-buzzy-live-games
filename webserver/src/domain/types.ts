@@ -31,7 +31,7 @@ export interface ChatEntry {
 export interface Player {
   id: string;
   displayName: string;
-  /** * Basename under `/avatars/` (see `webserver/client/public/avatars`; built to `dist/client/avatars`). */
+  /** * Relative path under `/avatars/` (scan of repo `avatars/` e.g. `base/…`, `Cousinades_2026/…`). */
   avatarKey: string;
   /** * Key from `/games/sounds/catalog.json`; played on buzz (+ echo on animateur si activé). */
   buzzSoundKey: string;
@@ -67,7 +67,17 @@ export interface Party {
   players: Map<string, Player>;
   /** * Player IDs in buzz order during an active buzz window. */
   buzzOrder: string[];
+  /**
+   * * During an active quiz buzz window, persisted choice index (`0 … n-1`) for each queued buzzer —
+   *   cleared alongside `buzzOrder`.
+   */
+  buzzQuizGuess: Map<string, number>;
   buzzWindowOpen: boolean;
+  /**
+   * * When true, advancing to the next playable cue (and starting a quiz-style pack manche) opens the buzzer
+   *   automatically when the surface supports buzzing (skipped for vidéo seule, révélation progressive, etc.).
+   */
+  autoOpenBuzzOnCueAdvance: boolean;
   chat: ChatEntry[];
   currentRoundIndex: number | null;
   currentQuestionIndex: number | null;
@@ -252,6 +262,16 @@ export interface PartyPublicSnapshot {
     allowedGoodKeys: string[];
     allowedBadKeys: string[];
   };
+  /** * Authenticated host only ; parallel to `buzzOrder` on quiz rounds — player pick vs correct key. */
+  buzzQuizQueueDetail?: Array<{
+    playerId: string;
+    choiceIndex: number;
+    letter: string;
+    choiceLabel: string;
+    correct: boolean;
+  }>;
+  /** * Authenticated host only : reopen buzz automatically after « question / extrait suivant » on compatible cues. */
+  autoOpenBuzzOnCueAdvance?: boolean;
 }
 
 /** * Stored inside the player JWT (`pid` mandatory; Fastify validates `sub` as player id). */
