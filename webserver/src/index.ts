@@ -76,6 +76,13 @@ async function main(): Promise<void> {
       });
     }
     for (const m of extras) {
+      if (m.kind !== "quiz_auto_toast") continue;
+      socketRef.to(`party:${partyId}:player`).emit("party:quiz_auto_toast", {
+        playerId: m.playerId,
+        correct: m.correct,
+      });
+    }
+    for (const m of extras) {
       if (m.kind !== "player_kicked") continue;
       socketRef.to(`party:${partyId}:player`).emit("party:kicked", { playerId: m.playerId });
     }

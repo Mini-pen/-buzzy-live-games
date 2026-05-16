@@ -174,6 +174,7 @@ interface PartySnapshot {
     correct: boolean;
   }>;
   autoOpenBuzzOnCueAdvance?: boolean;
+  autoAdvanceQuizWhenAllBuzzed?: boolean;
 }
 
 /** * Catalogue GET `/api/sounds` — player buzzer picker (fichiers `buzzers/` seulement). */
@@ -1750,6 +1751,7 @@ function Play(): JSX.Element {
     sounds: CatalogSoundEntry[];
   } | null>(null);
   const [lobbyBuzzSaving, setLobbyBuzzSaving] = useState(false);
+  const [quizAutoToast, setQuizAutoToast] = useState<"good" | "bad" | null>(null);
 
   useEffect(() => {
     void fetchJson<{ defaultBuzzerKey: string; sounds: CatalogSoundEntry[] }>(`/api/sounds`).then(
@@ -1805,16 +1807,30 @@ function Play(): JSX.Element {
       s.disconnect();
       nav("/", { replace: true });
     };
+    const onQuizAutoToast = (payload: { playerId?: string; correct?: unknown }): void => {
+      const sub = parseJwtPlayerSub(jwt);
+      if (
+        typeof sub !== "string" ||
+        typeof payload.playerId !== "string" ||
+        payload.playerId !== sub
+      ) {
+        return;
+      }
+      if (payload.correct !== true && payload.correct !== false) return;
+      setQuizAutoToast(payload.correct ? "good" : "bad");
+    };
     s.on("party:patch", onSnap);
     s.on("party:terminated", onTerminated);
     s.on("party:buzz_verdict", onBuzzVerdict);
     s.on("party:kicked", onKicked);
+    s.on("party:quiz_auto_toast", onQuizAutoToast);
 
     return (): void => {
       s.off("party:patch", onSnap);
       s.off("party:terminated", onTerminated);
       s.off("party:buzz_verdict", onBuzzVerdict);
       s.off("party:kicked", onKicked);
+      s.off("party:quiz_auto_toast", onQuizAutoToast);
       s.disconnect();
     };
   }, [pid, jwt, nav]);
@@ -1840,6 +1856,12 @@ function Play(): JSX.Element {
     setQuizSelected(null);
     setQuizBuzzLocked(null);
   }, [snap?.gameBoard?.kind, snap?.buzzWindowOpen]);
+
+  useEffect(() => {
+    if (quizAutoToast === null) return undefined;
+    const tid = window.setTimeout(() => setQuizAutoToast(null), 3200);
+    return (): void => window.clearTimeout(tid);
+  }, [quizAutoToast]);
 
   async function buzz(): Promise<void> {
     if (!pid || jwt === null || jwt === "") return;
@@ -2115,6 +2137,18 @@ function Play(): JSX.Element {
           Quitter pour changer pseudo / équipe
         </button>
       </p>
+      {quizAutoToast !== null ? (
+        <div
+          className={
+            quizAutoToast === "good"
+              ? "bz-quiz-auto-toast bz-quiz-auto-toast--good"
+              : "bz-quiz-auto-toast bz-quiz-auto-toast--bad"
+          }
+          role="status"
+        >
+          {quizAutoToast === "good" ? "Bonne réponse" : "Mauvaise réponse"}
+        </div>
+      ) : null}
     </Shell>
   );
 }
@@ -2550,6 +2584,21 @@ function Admin(): JSX.Element {
     [callHostSnapshot, hostBasePath],
   );
 
+  const onHostQuizAutoAllBuzzed = useCallback(
+    async (enabled: boolean): Promise<void> => {
+      setErr(null);
+      try {
+        const n = await callHostSnapshot(`${hostBasePath}/host/quiz-auto-all-buzzed`, "POST", {
+          enabled,
+        });
+        setSnap(n);
+      } catch (e12) {
+        setErr(e12 instanceof Error ? e12.message : String(e12));
+      }
+    },
+    [callHostSnapshot, hostBasePath],
+  );
+
   const onHostCueNext = useCallback(async (): Promise<void> => {
     setErr(null);
     try {
@@ -2963,8 +3012,20 @@ function Admin(): JSX.Element {
                   onChange={(e) => void onHostBuzzAutoCueAdvance(e.target.checked)}
                 />
                 <span>
-                  Rouvrir le buzz automatiquement après chaque «&nbsp;suivant&nbsp;» (QCM, questions orales,
-                  blind audio, images, indices progressifs — pas après un simple rejoué vidéo / audio).
+                  <strong>Ouverture buzz auto</strong> après chaque « suivant » (QCM, oral, blind, images,
+                  indices progressifs — pas après un simple rejoué média).
+                </span>
+              </label>
+              <label className="bz-host-buzz-auto bz-host-buzz-auto--quiz-all">
+                <input
+                  type="checkbox"
+                  checked={snap.autoAdvanceQuizWhenAllBuzzed === true}
+                  onChange={(e) => void onHostQuizAutoAllBuzzed(e.target.checked)}
+                />
+                <span>
+                  <strong>QCM uniquement</strong> : dès que <em>tous</em> les joueurs ont buzzé, attribuer les
+                  points (bonne / mauvaise selon la réponse attendue), afficher un court message sur chaque
+                  téléphone, puis passer à la question suivante automatiquement.
                 </span>
               </label>
             </div>

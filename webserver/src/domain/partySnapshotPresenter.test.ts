@@ -130,6 +130,7 @@ function partyStub(over: Partial<Party>): Party {
     buzzQuizGuess: new Map(),
     buzzWindowOpen: false,
     autoOpenBuzzOnCueAdvance: false,
+    autoAdvanceQuizWhenAllBuzzed: false,
     chat: [],
     currentRoundIndex: null,
     currentQuestionIndex: null,
@@ -237,6 +238,15 @@ describe("partySnapshotWithGame", () => {
 
     const partyOff = partyStub({ autoOpenBuzzOnCueAdvance: false });
     expect(partySnapshotWithGame(partyOff, packs, "host").autoOpenBuzzOnCueAdvance).toBe(false);
+  });
+
+  test("host snapshot exposes quiz auto-resume when all players buzzed preference", () => {
+    const partyOn = partyStub({ autoAdvanceQuizWhenAllBuzzed: true });
+    expect(partySnapshotWithGame(partyOn, packs, "host").autoAdvanceQuizWhenAllBuzzed).toBe(true);
+    expect(partySnapshotWithGame(partyOn, packs, "player").autoAdvanceQuizWhenAllBuzzed).toBeUndefined();
+
+    const partyOff = partyStub({ autoAdvanceQuizWhenAllBuzzed: false });
+    expect(partySnapshotWithGame(partyOff, packs, "host").autoAdvanceQuizWhenAllBuzzed).toBe(false);
   });
 
   test("video round exposes replay serial", () => {

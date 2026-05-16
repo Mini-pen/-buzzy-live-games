@@ -78,6 +78,11 @@ export interface Party {
    *   automatically when the surface supports buzzing (skipped for vidéo seule, révélation progressive, etc.).
    */
   autoOpenBuzzOnCueAdvance: boolean;
+  /**
+   * * When true on quiz (QCM) rounds, as soon as every connected player has buzzed, the server scores each pick
+   *   vs the correct key, then advances to the next question (same as host « suivant »).
+   */
+  autoAdvanceQuizWhenAllBuzzed: boolean;
   chat: ChatEntry[];
   currentRoundIndex: number | null;
   currentQuestionIndex: number | null;
@@ -272,6 +277,8 @@ export interface PartyPublicSnapshot {
   }>;
   /** * Authenticated host only : reopen buzz automatically after « question / extrait suivant » on compatible cues. */
   autoOpenBuzzOnCueAdvance?: boolean;
+  /** * Authenticated host only : QCM — score + question suivante dès que chaque joueur a buzzé. */
+  autoAdvanceQuizWhenAllBuzzed?: boolean;
 }
 
 /** * Stored inside the player JWT (`pid` mandatory; Fastify validates `sub` as player id). */

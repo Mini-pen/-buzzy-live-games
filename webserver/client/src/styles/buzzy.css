@@ -1111,6 +1111,36 @@ html, body {
   max-width: 440px;
 }
 .bz-app .bz-host-buzz-auto input { flex-shrink: 0; margin-top: 3px; }
+.bz-app .bz-host-buzz-auto--quiz-all {
+  margin-top: 10px;
+  max-width: 480px;
+}
+
+/* Player: discrete toast after auto QCM scoring (does not block buzz button) */
+.bz-app .bz-quiz-auto-toast {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: clamp(108px, 20vh, 200px);
+  transform: translateX(-50%);
+  max-width: min(280px, 90vw);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.38);
+  border: 1px solid var(--bz-line-strong);
+}
+.bz-app .bz-quiz-auto-toast--good {
+  background: color-mix(in oklab, var(--bz-good) 22%, var(--bz-surface));
+  color: var(--bz-text-strong);
+}
+.bz-app .bz-quiz-auto-toast--bad {
+  background: color-mix(in oklab, var(--bz-bad) 20%, var(--bz-surface));
+  color: var(--bz-text-strong);
+}
 
 /* Aside sections */
 .bz-app .bz-host-section {

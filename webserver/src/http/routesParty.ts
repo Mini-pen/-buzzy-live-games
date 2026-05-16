@@ -468,6 +468,8 @@ export async function registerPartyRoutes(
           parsedBody.data.quizChoiceIndex,
         );
         store.buzz(party, playerId, quizBuzz);
+        const loadedAfterBuzz = quizPackFromLoadedId(packs, party.loadedPackId);
+        store.maybeAutoResolveQuizWhenEveryPlayerBuzzed(party, loadedAfterBuzz);
         const snapshot = snapPlayer(party);
         let buzzToneUrl: string | undefined;
         if (!alreadyInQueue && party.buzzSound.playPlayerBuzzTone) {
@@ -616,6 +618,26 @@ export async function registerPartyRoutes(
         if (!store.verifyAdminToken(party, token))
           return reply.status(401).send({ error: "UNAUTHORIZED" });
         store.adminSetAutoOpenBuzzOnCueAdvance(party, body.enabled);
+        return snapHost(party);
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          return reply.status(400).send({ error: "VALIDATION", issues: err.issues });
+        }
+        return replyDomain(reply, err);
+      }
+    },
+  );
+
+  app.post<{ Params: { partyId: string } }>(
+    "/api/parties/:partyId/host/quiz-auto-all-buzzed",
+    async (req, reply) => {
+      try {
+        const body = buzzAutoCueAdvanceSchema.parse(req.body ?? {});
+        const party = requireParty(store, req.params.partyId);
+        const token = readBearer(req.headers.authorization);
+        if (!store.verifyAdminToken(party, token))
+          return reply.status(401).send({ error: "UNAUTHORIZED" });
+        store.adminSetAutoAdvanceQuizWhenAllBuzzed(party, body.enabled);
         return snapHost(party);
       } catch (err) {
         if (err instanceof z.ZodError) {

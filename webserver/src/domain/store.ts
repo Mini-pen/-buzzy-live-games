@@ -48,7 +48,8 @@ export type PartyNotifyMeta =
   | { kind: "answer_fx"; url: string }
   | { kind: "party_deleted" }
   | { kind: "player_kicked"; playerId: string }
-  | { kind: "buzz_verdict"; playerId: string; verdict: "good" | "bad" };
+  | { kind: "buzz_verdict"; playerId: string; verdict: "good" | "bad" }
+  | { kind: "quiz_auto_toast"; playerId: string; correct: boolean };
 
 export type PartyNotifier = (
   partyId: string,
@@ -191,6 +192,7 @@ export class PartyStore {
       buzzQuizGuess: new Map(),
       buzzWindowOpen: false,
       autoOpenBuzzOnCueAdvance: false,
+      autoAdvanceQuizWhenAllBuzzed: false,
       chat: [],
       currentRoundIndex: null,
       currentQuestionIndex: null,
@@ -477,6 +479,65 @@ export class PartyStore {
     party.autoOpenBuzzOnCueAdvance = enabled;
     this.touch(party);
     this.broadcast(party);
+  }
+
+  adminSetAutoAdvanceQuizWhenAllBuzzed(party: Party, enabled: boolean): void {
+    party.autoAdvanceQuizWhenAllBuzzed = enabled;
+    this.touch(party);
+    this.broadcast(party);
+  }
+
+  /**
+   * * When `autoAdvanceQuizWhenAllBuzzed` is on and the current cue is a quiz (QCM), resolves every buzz with an
+   *   automatic good/bad vs `correctIndex`, awards points, notifies verdict + toast, then advances the cue — if
+   *   the manche has no next step, `adminAdvanceCue` errors are swallowed so scores still hold.
+   */
+  maybeAutoResolveQuizWhenEveryPlayerBuzzed(party: Party, pack: QuizPack | null): void {
+    if (!party.autoAdvanceQuizWhenAllBuzzed || pack === null) return;
+    if (party.state !== "round_active" || !party.buzzWindowOpen) return;
+    const ri = party.currentRoundIndex;
+    const qi = party.currentQuestionIndex;
+    if (ri === null || qi === null || ri < 0 || qi < 0 || ri >= pack.rounds.length) return;
+    const round = pack.rounds[ri];
+    if (!isQuizRound(round)) return;
+    const q = round.questions[qi];
+    if (q === undefined) return;
+    const ci = q.correctIndex;
+    if (typeof ci !== "number" || ci < 0 || ci >= q.choices.length) return;
+    const nPlayers = party.players.size;
+    if (nPlayers === 0) return;
+    if (party.buzzOrder.length !== nPlayers) return;
+    const buzzed = new Set(party.buzzOrder);
+    if (buzzed.size !== nPlayers) return;
+    for (const id of party.players.keys()) {
+      if (!buzzed.has(id)) return;
+    }
+
+    const orderSnapshot = [...party.buzzOrder];
+    const extras: PartyNotifyMeta[] = [];
+    for (const pid of orderSnapshot) {
+      const guess = party.buzzQuizGuess.get(pid);
+      const good = typeof guess === "number" && guess === ci;
+      if (good) {
+        const pl = party.players.get(pid);
+        if (pl) pl.score = Math.max(0, pl.score + q.points);
+      }
+      extras.push({
+        kind: "buzz_verdict",
+        playerId: pid,
+        verdict: good ? "good" : "bad",
+      });
+      extras.push({ kind: "quiz_auto_toast", playerId: pid, correct: good });
+    }
+    clearBuzzQueue(party);
+    this.syncActiveQuizProgressIntoScriptItem(party);
+    this.touch(party);
+    this.notify(party.id, party, extras);
+    try {
+      this.adminAdvanceCue(party, pack);
+    } catch {
+      /* ROUND_EXHAUSTED ou fin de manche — état déjà notifié (scores + file vide). */
+    }
   }
 
   /** * Guess whether the current cue can use the buzz queue (QCM, oral, blind, progressive clue — not vidéo seule or reveal slide). */
